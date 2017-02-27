@@ -1,3 +1,0 @@
-activation function: sigmoid (ref: https://www.tensorflow.org/versions/r0.10/api_docs/python/nn/activation_functions_#sigmoid)
-accuracy: about 25% (varies a lot)
-

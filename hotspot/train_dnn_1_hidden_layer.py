@@ -17,12 +17,12 @@ NUM_HIDDEN1 = 4
 NUM_HIDDEN2 = 0
 
 # import input data, output golden data
-inFile = open('/home/cosine/spring2017/cs533/hotspot/data/input.txt')
+inFile = open('/home/cosine/spring2017/cs533/hotspot/data/train.data/input.txt')
 num_in_pixels = int(inFile.readline())
 input_image = [ [float(i) for i in inputs.split(', ')] for inputs in inFile.readlines()]
 assert(num_in_pixels == len(input_image))
 
-outFile = open('/home/cosine/spring2017/cs533/hotspot/data/golden.txt')
+outFile = open('/home/cosine/spring2017/cs533/hotspot/data/train.data/golden.txt')
 num_out_pixels = int(outFile.readline())
 output_image = [ [float(i) for i in outputs.split()] for outputs in outFile.readlines() ]
 assert(num_out_pixels == len(output_image))
@@ -127,12 +127,26 @@ evaluate_data = {
 print "evaluation: accuracy = %f" %sess.run(accuracy,feed_dict=evaluate_data)
 
 # save config, the weights and biases
+'''
 config_file = open("one_hidden/config.txt", 'w')
 config_file.write( str(NUM_IN) + "\n") # number of input neurons
 config_file.write( str(NUM_OUT) + "\n") # number of output neurons
 config_file.write( str(NUM_HIDDEN1) + "\n") # number of hidden1 neurons
 config_file.write( str(NUM_HIDDEN2) + "\n") # number of hidden2 neurons
 config_file.close()
+'''
+original_data = {
+    x: input_image,
+}
+W_0_save, W_1_save, b_0_save, b_1_save, y_save = sess.run([W_0, W_1, b_0, b_1, y], feed_dict=original_data)
+
+W_0_save = np.concatenate((W_0_save, b_0_save[np.newaxis]), axis=0)
+W_1_save = np.concatenate((W_1_save, b_1_save[np.newaxis]), axis=0)
+W_0_save = np.reshape(W_0_save.T, [-1, 1])
+W_1_save = np.reshape(W_1_save.T, [-1, 1])
+np.savetxt("one_hidden_dump/weights.txt", np.append(W_0_save, W_1_save), delimiter=",")
+np.savetxt("one_hidden_dump/output.txt", y_save, delimiter=",")
+'''
 W_0_reshape = tf.reshape(tf.transpose(W_0), [-1, 1])
 W_1_reshape = tf.reshape(tf.transpose(W_1), [-1, 1])
 #debug
@@ -141,7 +155,7 @@ print W_1_reshape
 W_0_save, W_1_save, b_0_save, b_1_save = sess.run([W_0_reshape, W_1_reshape, b_0, b_1])
 np.savetxt("one_hidden/weights.txt", np.append(W_0_save, W_1_save), delimiter=",")
 np.savetxt("one_hidden/biases.txt", np.append(b_0_save, b_1_save), delimiter=",")
-
+'''
 '''
 # debug: print the outputs
 for i in range(100):

@@ -1,7 +1,6 @@
 import tensorflow as tf
 from random import shuffle
-from numpy import zeros
-from numpy import savetxt
+import numpy as np
 
 # setup the parameters
 # TODO: these can be modified
@@ -17,12 +16,12 @@ NUM_HIDDEN1 = 0
 NUM_HIDDEN2 = 0
 
 # import input data, output golden data
-inFile = open('/home/cosine/spring2017/cs533/hotspot/data/input.txt')
+inFile = open('/home/cosine/spring2017/cs533/hotspot/data/train.data/input.txt')
 num_in_pixels = int(inFile.readline())
 input_image = [ [float(i) for i in inputs.split(', ')] for inputs in inFile.readlines()]
 assert(num_in_pixels == len(input_image))
 
-outFile = open('/home/cosine/spring2017/cs533/hotspot/data/golden.txt')
+outFile = open('/home/cosine/spring2017/cs533/hotspot/data/train.data/golden.txt')
 num_out_pixels = int(outFile.readline())
 output_image = [ [float(i) for i in outputs.split()] for outputs in outFile.readlines() ]
 assert(num_out_pixels == len(output_image))
@@ -75,7 +74,7 @@ sess = tf.Session()
 sess.run(init)
 
 # training and validating
-acc = zeros(3)
+acc = np.zeros(3)
 for i in xrange(train_size/BATCH_SIZE):
     train_offset = i*BATCH_SIZE
     train_data = {
@@ -123,16 +122,22 @@ evaluate_data = {
 '''
 print "evaluation: accuracy = %f" %sess.run(accuracy,feed_dict=evaluate_data)
 
-# save config, the weights and biases
+# save config, the weights, biases and outputs
+'''
 config_file = open("nn/config.txt", 'w')
 config_file.write( str(NUM_IN) + "\n") # number of input neurons
 config_file.write( str(NUM_OUT) + "\n") # number of output neurons
 config_file.write( str(NUM_HIDDEN1) + "\n") # number of hidden1 neurons
 config_file.write( str(NUM_HIDDEN2) + "\n") # number of hidden2 neurons
 config_file.close()
-W_save, b_save = sess.run([W, b])
-savetxt("nn/weights.txt", W_save, delimiter=",")
-savetxt("nn/biases.txt", b_save, delimiter=",")
+'''
+original_data = {
+    x: input_image,
+    y_: output_image
+}
+W_save, b_save, y_save = sess.run([W, b, y], feed_dict=original_data)
+np.savetxt("zero_hidden/weights.txt", np.append(W_save, b_save), delimiter=",")
+np.savetxt("data/train.data/output_0_hidden.txt", y_save, delimiter=",")
 
 '''
 # debug: print the outputs
