@@ -16,12 +16,12 @@ NUM_HIDDEN1 = 0
 NUM_HIDDEN2 = 0
 
 # import input data, output golden data
-inFile = open('/home/cosine/spring2017/cs533/hotspot/data/train.data/input.txt')
+inFile = open('/home/cosine/spring2017/cs533/project/hotspot/data/train.data/input.txt')
 num_in_pixels = int(inFile.readline())
 input_image = [ [float(i) for i in inputs.split(', ')] for inputs in inFile.readlines()]
 assert(num_in_pixels == len(input_image))
 
-outFile = open('/home/cosine/spring2017/cs533/hotspot/data/train.data/golden.txt')
+outFile = open('/home/cosine/spring2017/cs533/project/hotspot/data/train.data/golden.txt')
 num_out_pixels = int(outFile.readline())
 output_image = [ [float(i) for i in outputs.split()] for outputs in outFile.readlines() ]
 assert(num_out_pixels == len(output_image))
@@ -52,7 +52,7 @@ W = tf.Variable(tf.zeros([NUM_IN, NUM_OUT]))
 b = tf.Variable(tf.zeros(NUM_OUT))
 
 # trained outputs
-y = tf.add(tf.matmul(x, W), b)
+y = tf.sigmoid(tf.add(tf.matmul(x, W), b))
 
 # golden outputs
 y_ = tf.placeholder(tf.float32, [None, NUM_OUT])
@@ -136,8 +136,8 @@ original_data = {
     y_: output_image
 }
 W_save, b_save, y_save = sess.run([W, b, y], feed_dict=original_data)
-np.savetxt("zero_hidden/weights.txt", np.append(W_save, b_save), delimiter=",")
-np.savetxt("data/train.data/output_0_hidden.txt", y_save, delimiter=",")
+np.savetxt("nn_config/zero_hidden_sigmoid/weights.txt", np.append(W_save, b_save), delimiter=",")
+np.savetxt("data/train.data/train_result/zero_hidden_sigmoid.txt", y_save, delimiter=",")
 
 '''
 # debug: print the outputs
