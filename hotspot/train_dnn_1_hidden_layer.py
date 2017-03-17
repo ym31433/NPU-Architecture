@@ -17,12 +17,12 @@ NUM_HIDDEN1 = 4
 NUM_HIDDEN2 = 0
 
 # import input data, output golden data
-inFile = open('/home/cosine/spring2017/cs533/hotspot/data/train.data/input.txt')
+inFile = open('/home/cosine/spring2017/cs533/project/hotspot/data/train.data/input.txt')
 num_in_pixels = int(inFile.readline())
 input_image = [ [float(i) for i in inputs.split(', ')] for inputs in inFile.readlines()]
 assert(num_in_pixels == len(input_image))
 
-outFile = open('/home/cosine/spring2017/cs533/hotspot/data/train.data/golden.txt')
+outFile = open('/home/cosine/spring2017/cs533/project/hotspot/data/train.data/golden.txt')
 num_out_pixels = int(outFile.readline())
 output_image = [ [float(i) for i in outputs.split()] for outputs in outFile.readlines() ]
 assert(num_out_pixels == len(output_image))
@@ -55,7 +55,8 @@ W_1 = tf.Variable(tf.zeros([NUM_HIDDEN1, NUM_OUT]))
 b_1 = tf.Variable(tf.zeros(NUM_OUT))
 
 # trained outputs
-h = tf.sigmoid(tf.add(tf.matmul(x, W_0), b_0))
+#h = tf.sigmoid(tf.add(tf.matmul(x, W_0), b_0))
+h = tf.add(tf.matmul(x, W_0), b_0)
 y = tf.add(tf.matmul(h, W_1), b_1)
 
 # golden outputs
@@ -144,8 +145,8 @@ W_0_save = np.concatenate((W_0_save, b_0_save[np.newaxis]), axis=0)
 W_1_save = np.concatenate((W_1_save, b_1_save[np.newaxis]), axis=0)
 W_0_save = np.reshape(W_0_save.T, [-1, 1])
 W_1_save = np.reshape(W_1_save.T, [-1, 1])
-np.savetxt("one_hidden_dump/weights.txt", np.append(W_0_save, W_1_save), delimiter=",")
-np.savetxt("one_hidden_dump/output.txt", y_save, delimiter=",")
+np.savetxt("nn_config/one_hidden.txt", np.append(W_0_save, W_1_save), delimiter=",")
+np.savetxt("data/train.data/train_result/one_hidden.txt", y_save, delimiter=",")
 '''
 W_0_reshape = tf.reshape(tf.transpose(W_0), [-1, 1])
 W_1_reshape = tf.reshape(tf.transpose(W_1), [-1, 1])
