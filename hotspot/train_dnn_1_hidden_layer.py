@@ -6,7 +6,7 @@ import numpy as np
 # setup the parameters
 # TODO: these can be modified
 BATCH_SIZE = 100
-LEARNING_RATE = 0.002
+LEARNING_RATE = 0.02
 TRAINING_FRACTION = 0.7
 VALIDATING_FRACTION = 0.2
 
@@ -69,7 +69,7 @@ accuracy = 100-100*tf.reduce_mean(tf.div(tf.abs(tf.sub(y, y_)), y_))
 # train
 # TODO: train steps can be modified
 # eg. momentum
-trainstep = tf.train.GradientDescentOptimizer(LEARNING_RATE).minimize(cost)
+trainstep = tf.train.AdagradOptimizer(LEARNING_RATE).minimize(cost)
 
 # init
 init = tf.initialize_all_variables()
@@ -145,7 +145,7 @@ W_0_save = np.concatenate((W_0_save, b_0_save[np.newaxis]), axis=0)
 W_1_save = np.concatenate((W_1_save, b_1_save[np.newaxis]), axis=0)
 W_0_save = np.reshape(W_0_save.T, [-1, 1])
 W_1_save = np.reshape(W_1_save.T, [-1, 1])
-np.savetxt("nn_config/one_hidden.txt", np.append(W_0_save, W_1_save), delimiter=",")
+np.savetxt("nn_config/one_hidden/weights.txt", np.append(W_0_save, W_1_save), delimiter=",")
 np.savetxt("data/train.data/train_result/one_hidden.txt", y_save, delimiter=",")
 '''
 W_0_reshape = tf.reshape(tf.transpose(W_0), [-1, 1])
