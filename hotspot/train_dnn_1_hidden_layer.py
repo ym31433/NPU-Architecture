@@ -55,7 +55,8 @@ W_1 = tf.Variable(tf.zeros([NUM_HIDDEN1, NUM_OUT]))
 b_1 = tf.Variable(tf.zeros(NUM_OUT))
 
 # trained outputs
-h = tf.sigmoid(tf.add(tf.matmul(x, W_0), b_0))
+#h = tf.sigmoid(tf.add(tf.matmul(x, W_0), b_0))
+h = tf.nn.relu(tf.add(tf.matmul(x, W_0), b_0))
 #h = tf.add(tf.matmul(x, W_0), b_0)
 y = tf.add(tf.matmul(h, W_1), b_1)
 
@@ -141,12 +142,31 @@ original_data = {
 }
 W_0_save, W_1_save, b_0_save, b_1_save, y_save = sess.run([W_0, W_1, b_0, b_1, y], feed_dict=original_data)
 
+weight_file = open("nn_config/one_hidden_relu/weights.txt", 'w')
+for i in xrange(NUM_HIDDEN1):
+    for j in xrange(NUM_IN):
+        weight_file.write(str(W_0_save[j][i]) + "\n")
+    weight_file.write(str(b_0_save[i]) + "\n")
+for i in xrange(NUM_OUT):
+    for j in xrange(NUM_HIDDEN1):
+        weight_file.write(str(W_1_save[j][i]) + "\n")
+    weight_file.write(str(b_1_save[i]) + "\n")
+weight_file.close()
+
+output_file = open("data/train.data/train_result/one_hidden_relu.txt", 'w')
+for i in xrange(len(y_save)):
+    for j in xrange(NUM_OUT):
+        output_file.write(str(y_save[i][j]) + "\n")
+output_file.close()
+
+'''
 W_0_save = np.concatenate((W_0_save, b_0_save[np.newaxis]), axis=0)
 W_1_save = np.concatenate((W_1_save, b_1_save[np.newaxis]), axis=0)
 W_0_save = np.reshape(W_0_save.T, [-1, 1])
 W_1_save = np.reshape(W_1_save.T, [-1, 1])
 np.savetxt("nn_config/one_hidden_sigmoid/weights.txt", np.append(W_0_save, W_1_save), delimiter=",")
 np.savetxt("data/train.data/train_result/one_hidden_sigmoid.txt", y_save, delimiter=",")
+'''
 '''
 W_0_reshape = tf.reshape(tf.transpose(W_0), [-1, 1])
 W_1_reshape = tf.reshape(tf.transpose(W_1), [-1, 1])
