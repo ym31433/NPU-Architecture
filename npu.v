@@ -390,14 +390,14 @@ always@(*) begin
 		end
 		PE_ACT_CLR: begin
 			if(pe_count_r == CYCLES_ACT) begin
-				if(state_w == state_r) begin
-					pe_state_w[i] = PE_IDLE;
-				end
-				else if(i == 0) begin
+				if(i == 0) begin
 					pe_state_w[i] = PE_MAB;
 				end
-				else begin
+				else if(state_w != state_r && (i <= num_busy_pes || num_iterations > 0)) begin
 					pe_state_w[i] = PE_MA;
+				end
+				else begin
+					pe_state_w[i] = PE_IDLE;
 				end
 			end
 		end
