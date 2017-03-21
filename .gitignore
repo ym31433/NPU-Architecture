@@ -1,2 +1,12 @@
 report/
 npu_old.v
+array_processor/*.qsys
+array_processor/*.sopcinfo
+array_processor/*.qpf
+array_processor/*.qsf
+array_processor/*.qws
+array_processor/fp_mac
+array_processpr/fp_add
+array_processor/fp_div
+array_processor/db
+array_processor/.qsys_edit
