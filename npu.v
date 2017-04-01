@@ -5,7 +5,7 @@ module npu(
 	ready);
 
 input         rst, clk, we, oe;
-inout  [31:0] data;
+inout signed  [31:0] data;
 output        ready;
 
 assign ready = (state_w == SEND_O)? 1'b1: 1'b0;
@@ -13,6 +13,7 @@ assign ready = (state_w == SEND_O)? 1'b1: 1'b0;
 // ===== PE i/o =====
 parameter PE_MA      = 3'd0;  //multiply & add
 parameter PE_MAB     = 3'd1;  //multiply & add (data from buffer)
+parameter PE_MABO    = 3'd7;  //multiply & add (data from buffer/its own output)
 parameter PE_ACT     = 3'd2;  //activation function
 parameter PE_ACT_CLR = 3'd3;  //activation function with clearing buffer
 parameter PE_LOAD    = 3'd4;  //load weights and biases
@@ -41,9 +42,9 @@ reg [4:0] state_count_r, state_count_w;
 reg [5:0] multadd_count_r, multadd_count_w;  // counts how many mult_add to do and how many weights(bias) to load
 
 //TODO: don't know the actual cycles yet
-parameter CYCLES_MA  = 3'd3; // used in MA, MAB, BIAS
-parameter CYCLES_ACT = 3'd7; // used in ACT, ACT_CLR
-reg [2:0] pe_count_r, pe_count_w; // counts the cycles to do FP MULT_ACC, DIV, ACT
+parameter CYCLES_MA  = 5'd3; // used in MA, MAB, BIAS. mac: 4 cycles
+parameter CYCLES_ACT = 5'd20; // used in ACT, ACT_CLR. add: 3 cycles; divide: 19 cycles
+reg [4:0] pe_count_r, pe_count_w; // counts the cycles to do FP MULT_ACC, DIV, ACT
 
 // ===== internal registers & wires =====
 parameter ZERO_HIDDEN = 2'd0;
@@ -56,6 +57,10 @@ wire [1:0] num_layers_w;
 //range: 0 ~ 31, which corresponds to number 1 ~ 32
 reg  [4:0] num_neurons_r[0:3];
 wire [4:0] num_neurons_w[0:3];
+//whether to pass activation function in a layer
+reg [2:0] do_act_r;
+wire [2:0] do_act_w;
+
 
 reg [5:0] num_multadds;
 
@@ -68,6 +73,8 @@ wire [1:0] num_iterations;
 //num_busy_pes is the number of non-idle pes in the last iteration of the layer
 reg [2:0] num_busy_pes;
 
+reg do_act;
+
 
 // num_layers & num_neurons
 assign num_layers_w = (state_r == CONFIG && state_count_r == 5'd0)? data_i: num_layers_r;
@@ -75,6 +82,7 @@ integer i_nn;
 for(i_nn = 0; i_nn < 4; i = i+1) begin
 	assign num_neurons_w[i_nn] = (state_r == CONFIG && state_count_r == i_nn+1)? data_i: num_neurons_r[i_nn];
 end
+assign do_act_w = (state_r == CONFIG && state_count_r == 5'd5)? data_i[2:0]: do_act_r;
 /*
 always@(*) begin
 	num_neurons_w[0] = num_neurons_r[0];
@@ -151,24 +159,28 @@ end
 // pe_w_id
 assign pe_w_id = state_count_w & 5'b00111;
 
-// num_iterations & num_multadds & num_busy_pes
+// num_iterations & num_multadds & num_busy_pes & do_act
 assign num_iterations = current_num_neurons >> 3;
 assign num_busy_pes = current_num_neurons & 5'b00111;
 always@(*) begin
 	current_num_neurons = 5'd0;
 	num_multadds = 5'd0;
+	do_act = 1'b0;
 	case(state_r)
 		LAYER_H1: begin
 			current_num_neurons = num_neurons_r[1];
 			num_multadds = num_neurons_r[0];
+			do_act = do_act_r[0];
 		end
 		LAYER_H2: begin
 			current_num_neurons = num_neurons_r[2];
 			num_multadds = num_neurons_r[1];
+			do_act = do_act_r[1];
 		end
 		LAYER_O: begin
 			current_num_neurons = num_neurons_r[3];
 			num_multadds = num_neurons_r[2];
+			do_act = do_act_r[2];
 		end
 	endcase
 end
@@ -178,42 +190,50 @@ end
 pe PE0(.Clock(clk), .Reset(rst),
 	.Ctrl(pe_state_w[0]),
 	.OutputCtrl(pe_oe[0]),
-	.data(data));
+	.Data(data),
+	.EnableAct(do_act));
 
 pe PE1(.Clock(clk), .Reset(rst),
 	.Ctrl(pe_state_w[1]),
 	.OutputCtrl(pe_oe[1]),
-	.data(data));
+	.Data(data),
+	.EnableAct(do_act));
 
 pe PE2(.Clock(clk), .Reset(rst),
 	.Ctrl(pe_state_w[2]),
 	.OutputCtrl(pe_oe[2]),
-	.data(data));
+	.Data(data),
+	.EnableAct(do_act));
 
 pe PE3(.Clock(clk), .Reset(rst),
 	.Ctrl(pe_state_w[3]),
 	.OutputCtrl(pe_oe[3]),
-	.data(data));
+	.Data(data),
+	.EnableAct(do_act));
 
 pe PE4(.Clock(clk), .Reset(rst),
 	.Ctrl(pe_state_w[4]),
 	.OutputCtrl(pe_oe[4]),
-	.data(data));
+	.Data(data),
+	.EnableAct(do_act));
 
 pe PE5(.Clock(clk), .Reset(rst),
 	.Ctrl(pe_state_w[5]),
 	.OutputCtrl(pe_oe[5]),
-	.data(data));
+	.Data(data),
+	.EnableAct(do_act));
 
 pe PE6(.Clock(clk), .Reset(rst),
 	.Ctrl(pe_state_w[6]),
 	.OutputCtrl(pe_oe[6]),
-	.data(data));
+	.Data(data),
+	.EnableAct(do_act));
 
 pe PE7(.Clock(clk), .Reset(rst),
 	.Ctrl(pe_state_w[7]),
 	.OutputCtrl(pe_oe[7]),
-	.data(data));
+	.Data(data),
+	.EnableAct(do_act));
 
 // ========= combinational =========
 // state
@@ -226,7 +246,7 @@ always@(*) begin
 			end
 		end
 		CONFIG: begin
-			if(state_count_r == 7'd4) begin
+			if(state_count_r == 5'd5) begin
 				if(num_layers_r == ZERO_HIDDEN) begin
 					state_w = LOAD_WO;
 				end
@@ -321,10 +341,10 @@ end
 
 // pe_count
 always@(*) begin
-	pe_count_w = 3'd0;
+	pe_count_w = 5'd0;
 	if( ((pe_state_r[0] == PE_MA || pe_state_r[0] == PE_MAB || pe_state_r[0] == PE_BIAS) && pe_count_r != CYCLES_MA) ||
 		((pe_state_r[0] == PE_ACT || pe_state_r[0] == PE_ACT_CLR) && pe_count_r != CYCLES_ACT) ) begin
-		pe_count_w = pe_count_r + 3'd1;
+		pe_count_w = pe_count_r + 5'd1;
 	end
 end
 
@@ -357,20 +377,19 @@ always@(*) begin
 				end
 				else if( (state_w == LAYER_H2 || state_w == LAYER_O) && num_layers_r[1] != 2'd0 &&
 					     state_count_w == 5'd0 &&
-					     (multadd_count_w & 6'b000111) == i_po) begin
-					pe_state_w[i] = PE_MAB;
+					     (multadd_count_w & 6'b000111) == i) begin
+					pe_state_w[i] = PE_MABO;
 				end
 			end
 		end
-		PE_MAB: begin
+		PE_MABO: begin
 			if(pe_count_r == CYCLES_MA) begin
-				if(multadd_count_r == num_multadds) begin
-					pe_state_w[i] = PE_BIAS;
-				end
-				else if( (state_w == LAYER_H2 || state_w == LAYER_O) && num_layers_r[1] != 2'd0 &&
-					     state_count_w == 5'd0) begin
-					pe_state_w[i] = PE_MA;
-				end
+				pe_state_w[i] = PE_MA;
+			end
+		end
+		PE_MAB: begin
+			if(pe_count_r == CYCLES_MA && multadd_count_r == num_multadds) begin
+				pe_state_w[i] = PE_BIAS;
 			end
 		end
 		PE_BIAS: begin
@@ -384,14 +403,14 @@ always@(*) begin
 			end
 		end
 		PE_ACT: begin
-			if(pe_count_r == CYCLES_ACT) begin
+			if((do_act == 1'b1 && pe_count_r == CYCLES_ACT) || do_act == 1'b0) begin
 				pe_state_w[i] = PE_MAB;
 			end
 		end
 		PE_ACT_CLR: begin
-			if(pe_count_r == CYCLES_ACT) begin
+			if((do_act == 1'b1 && pe_count_r == CYCLES_ACT) || do_act == 1'b0) begin
 				if(i == 0) begin
-					pe_state_w[i] = PE_MAB;
+					pe_state_w[i] = PE_MABO;
 				end
 				else if(state_w != state_r && (i <= num_busy_pes || num_iterations > 0)) begin
 					pe_state_w[i] = PE_MA;
@@ -411,13 +430,17 @@ end
 // 2. SEND_O state
 integer i_po;
 for(i_po = 0; i_po < 8; i_po = i_po+1) begin
-	assign pe_oe[i_po] = ((pe_state_r[i_po] == PE_MA && pe_state_w[i_po] == PE_MAB) ||
-						  (state_w == SEND_O && oe == 1'b1 && state_count_w == i_po))? 1'b1: 1'b0;
+	assign pe_oe[i_po] = (pe_state_r[i_po] == PE_MABO ||
+						  (pe_state_r[i_po] == PE_IDLE &&
+						   (state_r == LAYER_H2 || state_r == LAYER_O) && num_layers_r[1] != 2'd0 &&
+					       state_count_r == 5'd0 &&
+					       (multadd_count_w & 6'b000111) == i_po) ||
+						  (state_r == SEND_O && oe == 1'b1 && state_count_r == i_po))? 1'b1: 1'b0;
 end
 
 // ========= sequential    =========
-always@(posedge clk or negedge rst) begin
-	if(rst == 1'b0) begin
+always@(posedge clk or posedge rst) begin
+	if(rst == 1'b1) begin
 		pe_state_r[0]     <= PE_IDLE;
 		pe_state_r[1]     <= PE_IDLE;
 		pe_state_r[2]     <= PE_IDLE;
@@ -429,9 +452,10 @@ always@(posedge clk or negedge rst) begin
 		state_r           <= IDLE;
 		state_count_r     <= 5'd0;
 		multadd_count_r   <= 6'd0;
-		pe_count_r        <= 3'd0;
+		pe_count_r        <= 5'd0;
 		num_layers_r      <= 2'd0;
 		num_neurons_r     <= 5'd0;
+		do_act_r          <= 3'd0;
 	end
 	else begin
 		pe_state_r[0]     <= pe_state_w[0];
@@ -448,6 +472,7 @@ always@(posedge clk or negedge rst) begin
 		pe_count_r        <= pe_count_w;
 		num_layers_r      <= num_layers_w;
 		num_neurons_r     <= num_neurons_w;
+		do_act_r          <= do_act_w;
 	end
 end
 
