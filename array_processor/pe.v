@@ -44,14 +44,16 @@
 
 //module PE(Clock, Reset, Ctrl, OutputCtrl, DataIn, DataOut);
 //module pe(Clock, Reset, Ctrl, OutputCtrl, EnableAct, Data);
-module pe(Clock, Reset, Ctrl, OutputCtrl, EnableAct, Data, counter, ArrWgt_Rd, ArrWgt_Wr, ArrWeights_1, fp_mac_acc, fp_mac_b);
+module pe(Clock, Reset, Ctrl, OutputCtrl, EnableAct, Data, counter, ArrWgt_Rd, ArrWgt_Wr, ArrWeights_1, fp_mac_acc, fp_mac_a, fp_mac_b, fp_mac_output);
 
 output [3:0]  counter;
 output [11:0] ArrWgt_Rd;
 output [11:0] ArrWgt_Wr;
 output [31:0] ArrWeights_1;
 output fp_mac_acc;
+output [31:0] fp_mac_a;
 output [31:0] fp_mac_b;
+output [31:0] fp_mac_output;
 
 
 //--------------------------------
@@ -444,7 +446,7 @@ begin
 			
 	  PE_BIAS:
 	  begin 
-		fp_mac_acc = 0; 	// by default turn off accumulate flag
+		fp_mac_acc = 1; 	// by default turn off accumulate flag
 		fp_mac_a = 0;
 		fp_mac_b = 0;
 		
@@ -458,7 +460,7 @@ begin
 			fp_mac_b = ArrWeights[ArrWgt_Rd];
 			
 			// leave the accumulate flag on for first cycle only during BIAS stage.
-			fp_mac_acc = 1;
+			//fp_mac_acc = 1;
 		end 
 		else if (counter == COUNT_MA)
 		begin
@@ -466,6 +468,9 @@ begin
 		
 			// Retrieve floating point operation here 
 			CurrVal_n = fp_mac_output;
+			
+			// turn off accumulate when output is acquired
+			//fp_mac_acc = 0;
 			
 			// Increment the Read pointer for the array of weights 
 			if (ArrWgt_Rd + 1 < WGT_ARR_LEN)
@@ -481,6 +486,9 @@ begin
 			
 	  PE_ACT:
 	  begin 
+		// turn off accumulate
+		fp_mac_acc = 0;
+		
 		if (EnableAct == FALSE)
 		begin // no activation function
 			// do not perform any activation function operation;
@@ -564,6 +572,9 @@ begin
 			
 	  PE_ACT_CLR:
 	  begin
+		// turn off accumulate
+		fp_mac_acc = 0;
+		
 		if (EnableAct == FALSE)
 		begin 	// no activation function operation
 			// do not perform any activation function operation;
