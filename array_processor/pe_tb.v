@@ -8,12 +8,22 @@ module pe_tb();
 	reg [31:0] data;
 	wire [31:0] data_w;
 	reg do_act;
-	wire [3:0] counter;
+	wire [4:0] counter;
 	wire [11:0] ArrWgt_Rd;
 	wire [11:0] ArrWgt_Wr;
 	wire [31:0] ArrWeights_1;
 	wire fp_mac_acc;
+	wire [31:0] fp_mac_a;
 	wire [31:0] fp_mac_b;
+	wire [31:0] fp_mac_q;
+	wire fp_add_en;
+	wire [31:0] fp_add_a;
+	wire [31:0] fp_add_b;
+	wire [31:0] fp_add_output;
+	wire fp_div_en;
+	wire [31:0] fp_div_a;
+	wire [31:0] fp_div_b;
+	wire [31:0] fp_div_output;
 	
 	//reg in_flag;
 	//assign data_w = (in_flag) data : 32'bz;
@@ -29,7 +39,7 @@ module pe_tb();
 	parameter PE_ACT_CLR = 3'd7;  //activation function with clearing buffer
 
 
-	test_fp_ip fp_ip(.clk(clk), .rst(rst), .ctrl(pe_state), .output_ctrl(pe_oe), .data(data_w), .do_act(do_act), .counter(counter), .ArrWgt_Rd(ArrWgt_Rd), .ArrWgt_Wr(ArrWgt_Wr), .ArrWeights_1(ArrWeights_1), .fp_mac_acc(fp_mac_acc), .fp_mac_b(fp_mac_b));
+	test_fp_ip fp_ip(.clk(clk), .rst(rst), .ctrl(pe_state), .output_ctrl(pe_oe), .data(data_w), .do_act(do_act), .counter(counter), .ArrWgt_Rd(ArrWgt_Rd), .ArrWgt_Wr(ArrWgt_Wr), .ArrWeights_1(ArrWeights_1), .fp_mac_acc(fp_mac_acc), .fp_mac_a(fp_mac_a), .fp_mac_b(fp_mac_b), .fp_mac_q(fp_mac_q), .fp_add_en(fp_add_en), .fp_add_a(fp_add_a), .fp_add_b(fp_add_b), .fp_add_output(fp_add_output), .fp_div_en(fp_div_en), .fp_div_a(fp_div_a), .fp_div_b(fp_div_b), .fp_div_output(fp_div_output));
 
 	always begin
 		#(`CYCLE/2) clk = ~clk;
@@ -52,7 +62,18 @@ module pe_tb();
 		data = {1'b0,1'b1,30'b0};  //2
 		//in_flag = 1'b1;
 		do_act = 0;
+
+		#(`CYCLE);
+		data = 32'h44800000; //1024
 		
+		#(`CYCLE);
+		data = 32'h45800000; //4096
+		
+		
+		#(`CYCLE);
+		data = {1'b0,1'b1,30'b0};  //2
+		#(`CYCLE);
+		data = 32'h45800000; //4096
 		#(`CYCLE);
 		data = 32'h44800000; //1024
 		
@@ -62,13 +83,15 @@ module pe_tb();
 		//data = 32'h44800000; //1024
 		
 		#(`CYCLE);
-		data = 32'bz;
+		data = {1'b0,1'b1,30'b0};  //2
+		//data = 32'bz;
 		
 		//in_flag = 1'b0;
 		
-		#(`CYCLE*3);
+		//#(`CYCLE*3);
+		#(`CYCLE);
 		pe_state = PE_BIAS;
-		//data = 32'h44800000; //1024
+		data = 32'h44800000; //1024
 		//data = 32'h3f800000;	// 1
 				
 		#(`CYCLE);
@@ -78,6 +101,22 @@ module pe_tb();
 		pe_state = PE_ACT;
 		
 		#(`CYCLE);
+		pe_state = PE_MA;
+		data = 32'h45800000; //4096
+		#(`CYCLE);
+		data = {1'b0,1'b1,30'b0};  //2
+		#(`CYCLE);
+		pe_state = PE_BIAS;
+		data = 32'h44800000; //1024
+		#(`CYCLE);
+		data = 32'bz;
+		
+		
+		do_act = 1;
+		#(`CYCLE*3);
+		pe_state = PE_ACT;
+		
+		#(`CYCLE*23);
 		pe_state = PE_IDLE;
 		pe_oe = 1'b1;
 		

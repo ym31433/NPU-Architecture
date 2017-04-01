@@ -44,9 +44,9 @@
 
 //module PE(Clock, Reset, Ctrl, OutputCtrl, DataIn, DataOut);
 //module pe(Clock, Reset, Ctrl, OutputCtrl, EnableAct, Data);
-module pe(Clock, Reset, Ctrl, OutputCtrl, EnableAct, Data, counter, ArrWgt_Rd, ArrWgt_Wr, ArrWeights_1, fp_mac_acc, fp_mac_a, fp_mac_b, fp_mac_output);
+module pe(Clock, Reset, Ctrl, OutputCtrl, EnableAct, Data, counter, ArrWgt_Rd, ArrWgt_Wr, ArrWeights_1, fp_mac_acc, fp_mac_a, fp_mac_b, fp_mac_output, fp_add_a, fp_add_b, fp_add_en, fp_add_output, fp_div_a, fp_div_b, fp_div_en, fp_div_output);
 
-output [3:0]  counter;
+output [4:0]  counter;
 output [11:0] ArrWgt_Rd;
 output [11:0] ArrWgt_Wr;
 output [31:0] ArrWeights_1;
@@ -54,6 +54,14 @@ output fp_mac_acc;
 output [31:0] fp_mac_a;
 output [31:0] fp_mac_b;
 output [31:0] fp_mac_output;
+output fp_add_en;
+output [31:0] fp_add_a;
+output [31:0] fp_add_b;
+output [31:0] fp_add_output;
+output fp_div_en;
+output [31:0] fp_div_a;
+output [31:0] fp_div_b;
+output [31:0] fp_div_output;
 
 
 //--------------------------------
@@ -76,11 +84,11 @@ parameter CTRL_SIZE = 3; 	// number of bits for the ctrl signal
 parameter DATA_SIZE = 32;	// number of bits in the data input 
 
 // Counter values for FP operations
-parameter COUNT_FP_ADD = 2;
-parameter COUNT_FP_DIV = 18;
+parameter COUNT_FP_ADD = 2;	// 3 cycles
+parameter COUNT_FP_DIV = 18;	// 19 cycles 
 parameter COUNT_MA = 3; 	// FP multiply add operation; 4 cycles
-parameter COUNT_ACT = COUNT_FP_ADD + COUNT_FP_DIV;	// FP activation function operation 
-parameter COUNTER_SIZE = 4;	// number of bits in the counter value
+parameter COUNT_ACT = COUNT_FP_ADD + COUNT_FP_DIV + 2;	// FP activation function operation 
+parameter COUNTER_SIZE = 5;	// number of bits in the counter value
 
 // Neural network and system configuration info:
 parameter MAX_NEURONS_PER_STAGE = 32;	// maximum neurons in a single stage
@@ -154,6 +162,8 @@ reg [OUT_BUF_IND_SIZE-1:0] OutBuf_Wr; // = {OUT_BUF_IND_SIZE{1'b0}}; 	// write i
 reg [OUT_BUF_IND_SIZE-1:0] OutBuf_Rd; // = {OUT_BUF_IND_SIZE{1'b0}}; 	// read index
 reg OutBuf_Full_n; // flag to indicate buffer is full (next value)
 reg OutBuf_Full; // flag to indicate buffer is full 
+reg OutBuf_Empty_n; // flag to indicate buffer is empty 
+reg OutBuf_Empty; // flag to indicate buffer is empty
 
 reg signed [DATA_SIZE-1:0] ArrWeights [0:WGT_ARR_LEN-1];	// array of weights to be used in multiply-add operations
 reg signed [DATA_SIZE-1:0] ArrWeights_n [0:WGT_ARR_LEN-1];	// array of weights to be used in multiply-add operations
@@ -192,7 +202,7 @@ fp_mac fp_mac_mod(.a(fp_mac_a), .acc(fp_mac_acc), .areset(Reset), .b(fp_mac_b), 
 wire signed [DATA_SIZE-1:0] fp_add_output;
 reg signed [DATA_SIZE-1:0] fp_add_a;
 wire signed [DATA_SIZE-1:0] fp_add_b;
-assign fp_add_b = 1;
+assign fp_add_b = 32'h3f800000;	// fp value of 1
 wire fp_add_en;
 assign fp_add_en = 1;
 // instantiate fp_add module 
@@ -278,56 +288,47 @@ begin
 		fp_mac_a = 0;
 		fp_mac_b = 0;
 		
-		if (counter == 0) 
-		begin
-			// Perform the operation:
-			//CurrVal + (Data * ArrWeights[ArrWgt_Rd]);
+		// set up the inputs 
+		fp_mac_a = Data;
+		fp_mac_b = ArrWeights[ArrWgt_Rd];
 		
-			// set up the inputs 
-			fp_mac_a = Data;
-			fp_mac_b = ArrWeights[ArrWgt_Rd];
-			
-			// store the provided data in the input buffer 
-			if (InBuf_Full == FALSE)
-			begin 
-				InBuf_n[InBuf_Wr] = Data;
-			end
-			
+		// store the provided data in the input buffer 
+		if (InBuf_Full == FALSE)
+		begin 
+			InBuf_n[InBuf_Wr] = Data;
+		end
+
+		// Insert floating point operation here 
+		//CurrVal_n = fp_mac_output;
+		
+		// Increment the Read pointer for the array of weights 
+		// Note: Does not handle ArrWgt being empty.
+		if (ArrWgt_Rd + 1 < WGT_ARR_LEN)
+		begin 
+			ArrWgt_Rd_n = ArrWgt_Rd + 12'd1;
 		end 
-		else if (counter == COUNT_MA) 
-		begin	
-			// Insert floating point operation here 
-			CurrVal_n = fp_mac_output;
-			
-			// Increment the Read pointer for the array of weights 
-			// Note: Does not handle ArrWgt being empty.
-			if (ArrWgt_Rd + 1 < WGT_ARR_LEN)
+		else 
+		begin 
+			ArrWgt_Rd_n = {ARR_WGT_IND_SIZE{1'b0}};
+		end 
+		
+		// Increment the write pointer for the Input Buffer
+		if (InBuf_Full == FALSE)
+		begin				
+			if (InBuf_Wr + 1 < IN_BUF_LEN)
 			begin 
-				ArrWgt_Rd_n = ArrWgt_Rd + 12'd1;
+				InBuf_Wr_n = InBuf_Wr + 5'd1;
 			end 
 			else 
 			begin 
-				ArrWgt_Rd_n = {ARR_WGT_IND_SIZE{1'b0}};
+				InBuf_Wr_n = {IN_BUF_IND_SIZE{1'b0}};
 			end 
 			
-			// Increment the write pointer for the Input Buffer
-			if (InBuf_Full == FALSE)
-			begin				
-				if (InBuf_Wr + 1 < IN_BUF_LEN)
-				begin 
-					InBuf_Wr_n = InBuf_Wr + 5'd1;
-				end 
-				else 
-				begin 
-					InBuf_Wr_n = {IN_BUF_IND_SIZE{1'b0}};
-				end 
-				
-				// Check for condition where NEW write ptr value matches the read ptr --> set flag to indicate buffer is full 
-				if (InBuf_Rd == InBuf_Wr_n)
-					InBuf_Full_n = TRUE;
-				
-			end 
-		end // end else 
+			// Check for condition where NEW write ptr value matches the read ptr --> set flag to indicate buffer is full 
+			if (InBuf_Rd == InBuf_Wr_n)
+				InBuf_Full_n = TRUE;
+			
+		end 
 	  end
 			
 	  PE_MAB:
@@ -336,42 +337,31 @@ begin
 		fp_mac_a = 0;
 		fp_mac_b = 0;
 		
-		if (counter == 0)
-		begin 
-			// want to perform this operation:
-			// CurrVal <= CurrVal + ( InBuf[InBuf_Rd] * ArrWeights[ArrWgt_Rd] );
-			
-			// set up the inputs 
-			fp_mac_a = InBuf[InBuf_Rd];
-			fp_mac_b = ArrWeights[ArrWgt_Rd];
-		end
-		else if (counter == COUNT_MA)
-		begin
-			// calculation should be complete, pull the output value
-			
-			// Insert floating point operation here 
-			CurrVal_n = fp_mac_output;
+		// want to perform this operation:
+		// CurrVal <= CurrVal + ( InBuf[InBuf_Rd] * ArrWeights[ArrWgt_Rd] );
+		
+		// set up the inputs 
+		fp_mac_a = InBuf[InBuf_Rd];
+		fp_mac_b = ArrWeights[ArrWgt_Rd];
 
-			// Increment the Read ptr
-			if (InBuf_Rd + 1 < IN_BUF_LEN)
-			begin 
-				InBuf_Rd_n = InBuf_Rd + 5'd1;
-			end 
-			else 
-			begin 
-				InBuf_Rd_n = {IN_BUF_IND_SIZE{1'b0}};
-			end 
-			
-			// Increment the Read pointer for the array of weights 
-			if (ArrWgt_Rd + 1 < WGT_ARR_LEN)
-			begin 
-				ArrWgt_Rd_n = ArrWgt_Rd + 12'd1;
-			end 
-			else 
-			begin 
-				ArrWgt_Rd_n = {ARR_WGT_IND_SIZE{1'b0}};
-			end 
-			 
+		// Increment the Read ptr
+		if (InBuf_Rd + 1 < IN_BUF_LEN)
+		begin 
+			InBuf_Rd_n = InBuf_Rd + 5'd1;
+		end 
+		else 
+		begin 
+			InBuf_Rd_n = {IN_BUF_IND_SIZE{1'b0}};
+		end 
+		
+		// Increment the Read pointer for the array of weights 
+		if (ArrWgt_Rd + 1 < WGT_ARR_LEN)
+		begin 
+			ArrWgt_Rd_n = ArrWgt_Rd + 12'd1;
+		end 
+		else 
+		begin 
+			ArrWgt_Rd_n = {ARR_WGT_IND_SIZE{1'b0}};
 		end 
 	  end
 	  
@@ -381,72 +371,62 @@ begin
 		fp_mac_a = 0;
 		fp_mac_b = 0;
 		
-		if (counter == 0)
+		// want to perform this operation:
+		// CurrVal <= CurrVal + ( OutBuf[OutBuf_Rd] * ArrWeights[ArrWgt_Rd] );
+			
+		// set up the inputs 
+		fp_mac_a = OutBuf[OutBuf_Rd];
+		fp_mac_b = ArrWeights[ArrWgt_Rd];
+		
+		// Copy the value from the output buffer into the input buffer 
+		InBuf_n[InBuf_Wr] = OutBuf[OutBuf_Rd];
+			
+		// Increment the Read ptr for the input buffer?
+		if (InBuf_Rd + 1 < IN_BUF_LEN)
 		begin 
-			// want to perform this operation:
-			// CurrVal <= CurrVal + ( OutBuf[OutBuf_Rd] * ArrWeights[ArrWgt_Rd] );
-			
-			// set up the inputs 
-			fp_mac_a = OutBuf[OutBuf_Rd];
-			fp_mac_b = ArrWeights[ArrWgt_Rd];
-			
-			// Copy the value from the output buffer into the input buffer 
-			InBuf_n[InBuf_Wr] = OutBuf[OutBuf_Rd];
-		end
-		else if (counter == COUNT_MA)
-		begin
-			// calculation should be complete, pull the output value
-			
-			// Insert floating point operation here 
-			CurrVal_n = fp_mac_output;
-
-			// Increment the Read ptr for the input buffer?
-			if (InBuf_Rd + 1 < IN_BUF_LEN)
-			begin 
-				InBuf_Rd_n = InBuf_Rd + 5'd1;
-			end 
-			else 
-			begin 
-				InBuf_Rd_n = {IN_BUF_IND_SIZE{1'b0}};
-			end 
-			
-			// Increment the Read ptr for the output buffer 
-			if (OutBuf_Rd + 1 < OUT_BUF_LEN)
-			begin
-				OutBuf_Rd_n = OutBuf_Rd + 5'd1;
-			end 
-			else 
-			begin 
-				OutBuf_Rd_n = {OUT_BUF_IND_SIZE{1'b0}};
-			end 
-
-			// Increment the Read pointer for the array of weights 
-			if (ArrWgt_Rd + 1 < WGT_ARR_LEN)
-			begin 
-				ArrWgt_Rd_n = ArrWgt_Rd + 12'd1;
-			end 
-			else 
-			begin 
-				ArrWgt_Rd_n = {ARR_WGT_IND_SIZE{1'b0}};
-			end 
-			
-			// If this PE supplied the data value to other PEs from its output buffer, increment the output RD pointer 		
-			// Increment the read pointer for the buffer
-			// Don't need to use empty flag.
-			if (OutBuf_Rd + 1 < OUT_BUF_LEN)
-			begin 
-				OutBuf_Rd_n = OutBuf_Rd + 5'd1;
-			end 
-			else 
-			begin 
-				OutBuf_Rd_n = {OUT_BUF_IND_SIZE{1'b0}};
-			end
+			InBuf_Rd_n = InBuf_Rd + 5'd1;
 		end 
+		else 
+		begin 
+			InBuf_Rd_n = {IN_BUF_IND_SIZE{1'b0}};
+		end 
+		
+		// Increment the Read ptr for the output buffer 
+		if (OutBuf_Rd + 1 < OUT_BUF_LEN)
+		begin
+			OutBuf_Rd_n = OutBuf_Rd + 5'd1;
+		end 
+		else 
+		begin 
+			OutBuf_Rd_n = {OUT_BUF_IND_SIZE{1'b0}};
+		end 
+
+		// Increment the Read pointer for the array of weights 
+		if (ArrWgt_Rd + 1 < WGT_ARR_LEN)
+		begin 
+			ArrWgt_Rd_n = ArrWgt_Rd + 12'd1;
+		end 
+		else 
+		begin 
+			ArrWgt_Rd_n = {ARR_WGT_IND_SIZE{1'b0}};
+		end 
+		
+		// If this PE supplied the data value to other PEs from its output buffer, increment the output RD pointer 		
+		// Increment the read pointer for the buffer
+		// Don't need to use empty flag.
+		if (OutBuf_Rd + 1 < OUT_BUF_LEN)
+		begin 
+			OutBuf_Rd_n = OutBuf_Rd + 5'd1;
+		end 
+		else 
+		begin 
+			OutBuf_Rd_n = {OUT_BUF_IND_SIZE{1'b0}};
+		end
 	  end
 			
 	  PE_BIAS:
 	  begin 
-		fp_mac_acc = 1; 	// by default turn off accumulate flag
+		fp_mac_acc = 1; 	// by default, accumulate flag must be on during bias
 		fp_mac_a = 0;
 		fp_mac_b = 0;
 		
@@ -456,7 +436,7 @@ begin
 			// CurrVal <= CurrVal + (Data * ArrWeights[ArrWgt_Rd]);
 			
 			// set up the inputs 
-			fp_mac_a = 32'd1;
+			fp_mac_a = 32'h3f800000;	// fp value of 1
 			fp_mac_b = ArrWeights[ArrWgt_Rd];
 			
 			// leave the accumulate flag on for first cycle only during BIAS stage.
@@ -467,7 +447,7 @@ begin
 			// calculation should be complete, pull the output value
 		
 			// Retrieve floating point operation here 
-			CurrVal_n = fp_mac_output;
+			//CurrVal_n = fp_mac_output;
 			
 			// turn off accumulate when output is acquired
 			//fp_mac_acc = 0;
@@ -486,20 +466,17 @@ begin
 			
 	  PE_ACT:
 	  begin 
-		// turn off accumulate
-		fp_mac_acc = 0;
-		
 		if (EnableAct == FALSE)
 		begin // no activation function
 			// do not perform any activation function operation;
 			// just write current output to buffer 
 			// clear CurrVal for next neuron calculation
-			CurrVal_n = 0;
+			//CurrVal_n = 0;
 			
 			// Put the calculated value into the output buffer
 			if (OutBuf_Full == FALSE)
 			begin 
-				OutBuf_n[OutBuf_Wr] = CurrVal;
+				OutBuf_n[OutBuf_Wr] = fp_mac_output;
 				
 				// Update write ptr
 				if (OutBuf_Wr + 1 < OUT_BUF_LEN)
@@ -514,23 +491,40 @@ begin
 				// set full flag if needed 
 				if (OutBuf_Wr_n == OutBuf_Rd)
 					OutBuf_Full_n = TRUE;
+				
+				// set non-empty
+				OutBuf_Empty_n = FALSE;
 			end 
 			
 			// Reset the Read ptr for the input buffer
 			InBuf_Rd_n = InBuf_RdStart;
+			
+			// turn off the accumulate function
+			fp_mac_acc = 0;
 		end 
 		else // fast sigmoid activation function
 		begin 
+			// turn off accumulate by default
+			fp_mac_acc = 0;
+			fp_div_a = CurrVal;
+			
 			if (counter == 0) 
 			begin 
+				// leave accumulate on for the first cycle, just in case 
+				fp_mac_acc = 1;
+				
 				// want to perform this operation:
 				// CurrVal <= CurrVal / (1 + {1'b0,CurrVal[DATA_SIZE-2:0]});
 									
 				// set up the inputs 
-				fp_add_a = {1'b0,CurrVal[DATA_SIZE-2:0]};
-				fp_div_a = CurrVal;
+				//fp_add_a = {1'b0,CurrVal[DATA_SIZE-2:0]};
+				//fp_div_a = CurrVal;
+				
+				fp_add_a = {1'b0,fp_mac_output[DATA_SIZE-2:0]};
+				//fp_div_a = fp_mac_output;
+				CurrVal_n = fp_mac_output;
 			end
-			else if (counter == COUNT_FP_ADD)
+			else if (counter == (COUNT_FP_ADD + 1))
 			begin 
 				// Note: connect output of the add module to the divisor for the div module. (For the activation function calculation.)
 				fp_div_b = fp_add_output;	// only do this when cycle counter == 3 (duration of ADD operation).
@@ -562,6 +556,9 @@ begin
 					// set full flag if needed 
 					if (OutBuf_Wr_n == OutBuf_Rd)
 						OutBuf_Full_n = TRUE;
+					
+					// set non-empty
+					OutBuf_Empty_n = FALSE;
 				end 
 				
 				// Reset the Read ptr for the input buffer
@@ -572,9 +569,6 @@ begin
 			
 	  PE_ACT_CLR:
 	  begin
-		// turn off accumulate
-		fp_mac_acc = 0;
-		
 		if (EnableAct == FALSE)
 		begin 	// no activation function operation
 			// do not perform any activation function operation;
@@ -585,7 +579,7 @@ begin
 			// Put the calculated value into the output buffer
 			if (OutBuf_Full == FALSE)
 			begin 
-				OutBuf_n[OutBuf_Wr] = CurrVal;
+				OutBuf_n[OutBuf_Wr] = fp_mac_output;
 				
 				// Update write ptr
 				if (OutBuf_Wr + 1 < OUT_BUF_LEN)
@@ -600,23 +594,37 @@ begin
 				// set full flag if needed 
 				if (OutBuf_Wr_n == OutBuf_Rd)
 					OutBuf_Full_n = TRUE;
+				
+				// set non-empty
+				OutBuf_Empty_n = FALSE;
 			end 
 			
 			// Reset the Read ptr for the input buffer
 			InBuf_Rd_n = InBuf_RdStart;
+			
+			// turn off the accumulate function
+			fp_mac_acc = 0;
 		end 
 		else	// fast sigmoid activation function 
 		begin
+			// turn off accumulate 
+			fp_mac_acc = 0;
+			fp_div_a = CurrVal;
+			
 			if (counter == 0) 
 			begin 
+				// leave accumulate on for the first cycle, just in case 
+				fp_mac_acc = 1;
+				
 				// want to perform this operation:
 				// CurrVal <= CurrVal / (1 + {1'b0,CurrVal[DATA_SIZE-2:0]});
 				
 				// set up the inputs 
-				fp_add_a = {1'b0,CurrVal[DATA_SIZE-2:0]};
-				fp_div_a = CurrVal;			
+				fp_add_a = {1'b0,fp_mac_output[DATA_SIZE-2:0]};
+				//fp_div_a = fp_mac_output;		
+				CurrVal_n = fp_mac_output;	
 			end 
-			else if (counter == COUNT_FP_ADD)
+			else if (counter == (COUNT_FP_ADD+1))
 			begin 
 				// Note: connect output of the add module to the divisor for the div module. (For the activation function calculation.)
 				fp_div_b = fp_add_output;	// only do this when cycle counter == 3 (duration of ADD operation).
@@ -624,7 +632,7 @@ begin
 			else if (counter == COUNT_ACT)
 			begin 
 				// computation is complete; obtain the value 
-				CurrVal_n = fp_div_output;
+				CurrVal_n = 0;
 				
 				// NOTE: This is a duplicate of the operations 
 				// 		 performed in the PE_ACT section, EXCEPT with 
@@ -657,6 +665,9 @@ begin
 					// set full flag if needed 
 					if (OutBuf_Wr_n == OutBuf_Rd)
 						OutBuf_Full_n = TRUE;
+					
+					// set non-empty
+					OutBuf_Empty_n = FALSE;
 				end 
 							
 			end 
@@ -690,18 +701,29 @@ begin
 	  PE_IDLE:
 	  begin 
 		// Update output buffer read pointer on last cycle of calculation
-		if ((OutputCtrl == TRUE) && (counter == COUNT_MA))
+		//if ((OutputCtrl == TRUE) && (counter == COUNT_MA))
+		if (OutputCtrl == TRUE)
 		begin 
-			// in the last cycle when the output ctrl is set to TRUE, 
-			// the output buffer rd pointer needs to be updated.
-			if ((OutBuf_Rd + 1) < OUT_BUF_LEN)
-			begin 
-				OutBuf_Rd_n = OutBuf_Rd + 5'd1;
-			end 
-			else 
-			begin 
-				OutBuf_Rd_n = {OUT_BUF_IND_SIZE{1'b0}};
-			end 
+		
+			// Only increment the pointer if the buffer is not empty 
+			if (OutBuf_Empty == FALSE)
+			begin
+				// in the last cycle when the output ctrl is set to TRUE, 
+				// the output buffer rd pointer needs to be updated.
+				if ((OutBuf_Rd + 1) < OUT_BUF_LEN)
+				begin 
+					OutBuf_Rd_n = OutBuf_Rd + 5'd1;
+				end 
+				else 
+				begin 
+					OutBuf_Rd_n = {OUT_BUF_IND_SIZE{1'b0}};
+				end 
+				
+				if (OutBuf_Rd_n == OutBuf_Wr)
+				begin
+					OutBuf_Empty_n = TRUE;
+				end
+			end
 		end 
 	  
 	  end 
@@ -719,14 +741,15 @@ end
 // Counters 
 always @(*)
 begin
-	if ((((Ctrl == PE_MA) || (Ctrl == PE_MAB) || (Ctrl == PE_MABO) || (Ctrl == PE_BIAS) || (Ctrl == PE_IDLE)) && (counter < COUNT_MA)) || (((Ctrl == PE_ACT) || (Ctrl == PE_ACT_CLR)) && counter < COUNT_ACT))
+	//if ((((Ctrl == PE_MA) || (Ctrl == PE_MAB) || (Ctrl == PE_MABO) || (Ctrl == PE_BIAS) || (Ctrl == PE_IDLE)) && (counter < COUNT_MA)) || (((Ctrl == PE_ACT) || (Ctrl == PE_ACT_CLR)) && counter < COUNT_ACT))
+	if (((Ctrl == PE_BIAS) && (counter < COUNT_MA)) || (((Ctrl == PE_ACT) || (Ctrl == PE_ACT_CLR)) && counter < COUNT_ACT))
 	begin 
 		// increment counter if the maximum has not yet been reached in either the MA or the ACT stage, depending on the current stage.
-		counter_n = counter + 4'd1;
+		counter_n = counter + 5'd1;
 	end
 	else
 	begin
-		counter_n = 4'd0;	// default value for counter is 0
+		counter_n = 5'd0;	// default value for counter is 0
 	end
 end
 
@@ -772,6 +795,7 @@ begin
 		OutBuf_Rd <= {OUT_BUF_IND_SIZE{1'b0}};
 		OutBuf_Wr <= {OUT_BUF_IND_SIZE{1'b0}};
 		OutBuf_Full <= FALSE;
+		OutBuf_Empty <= TRUE;
 		ArrWgt_Rd <= {ARR_WGT_IND_SIZE{1'b0}};
 		ArrWgt_Wr <= {ARR_WGT_IND_SIZE{1'b0}};
 		ArrWgt_Full <= FALSE;
@@ -802,6 +826,7 @@ begin
 		OutBuf_Wr <= OutBuf_Wr_n;
 		OutBuf_Rd <= OutBuf_Rd_n;
 		OutBuf_Full <= OutBuf_Full_n;
+		OutBuf_Empty <= OutBuf_Empty_n;
 		ArrWgt_Wr <= ArrWgt_Wr_n;
 		ArrWgt_Rd <= ArrWgt_Rd_n;
 		ArrWgt_Full <= ArrWgt_Full_n;
