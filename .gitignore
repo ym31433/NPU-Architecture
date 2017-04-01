@@ -10,3 +10,4 @@ array_processpr/fp_add
 array_processor/fp_div
 array_processor/db
 array_processor/.qsys_edit
+array_processor/npu.v.orig

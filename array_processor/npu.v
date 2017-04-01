@@ -327,14 +327,18 @@ end
 
 // multadd_count
 always@(*) begin
+	multadd_count_w = 6'd0;
+/*
 	multadd_count_w = multadd_count_r;
 	if(state_w != state_r ||
 	   ( (state_r == LOAD_W1 || state_r == LOAD_W2 || state_r == LOAD_WO) && multadd_count_r == num_multadds ) ||
 	   (pe_state_r[0] == PE_ACT && pe_count_r == CYCLES_ACT) ) begin
 		multadd_count_w = 6'd0;
 	end
-	else if( (state_r == LOAD_W1 || state_r == LOAD_W2 || state_r == LOAD_WO) ||
-		     ( (pe_state_r[0] == PE_MA || pe_state_r[0] == PE_MAB) && pe_count_r == CYCLES_MA) ) begin
+*/
+	if( (state_r == LOAD_W1 || state_r == LOAD_W2 || state_r == LOAD_WO ||
+		 pe_state_r[0] == PE_MA || pe_state_r[0] == PE_MAB || pe_state_r[0] == PE_MABO) &&
+		multadd_count_r != num_multadds ) begin
 		multadd_count_w = multadd_count_r + 6'd1;
 	end
 end
@@ -342,7 +346,7 @@ end
 // pe_count
 always@(*) begin
 	pe_count_w = 5'd0;
-	if( ((pe_state_r[0] == PE_MA || pe_state_r[0] == PE_MAB || pe_state_r[0] == PE_BIAS) && pe_count_r != CYCLES_MA) ||
+	if( (pe_state_r[0] == PE_BIAS && pe_count_r != CYCLES_MA) ||
 		((pe_state_r[0] == PE_ACT || pe_state_r[0] == PE_ACT_CLR) && pe_count_r != CYCLES_ACT) ) begin
 		pe_count_w = pe_count_r + 5'd1;
 	end
@@ -371,24 +375,25 @@ always@(*) begin
 			end
 		end
 		PE_MA: begin
-			if(pe_count_r == CYCLES_MA) begin
-				if(multadd_count_r == num_multadds) begin
-					pe_state_w[i] = PE_BIAS;
-				end
-				else if( (state_w == LAYER_H2 || state_w == LAYER_O) && num_layers_r[1] != 2'd0 &&
-					     state_count_w == 5'd0 &&
-					     (multadd_count_w & 6'b000111) == i) begin
-					pe_state_w[i] = PE_MABO;
-				end
+			if(multadd_count_r == num_multadds) begin
+				pe_state_w[i] = PE_BIAS;
+			end
+			else if( (state_w == LAYER_H2 || state_w == LAYER_O) && num_layers_r[1] != 2'd0 &&
+				     state_count_w == 5'd0 &&
+				     (multadd_count_w & 6'b000111) == i) begin
+				pe_state_w[i] = PE_MABO;
 			end
 		end
 		PE_MABO: begin
-			if(pe_count_r == CYCLES_MA) begin
+			if(multadd_count_r == num_multadds) begin
+				pe_state_w[i] = PE_BIAS;
+			end
+			else begin
 				pe_state_w[i] = PE_MA;
 			end
 		end
 		PE_MAB: begin
-			if(pe_count_r == CYCLES_MA && multadd_count_r == num_multadds) begin
+			if(multadd_count_r == num_multadds) begin
 				pe_state_w[i] = PE_BIAS;
 			end
 		end
