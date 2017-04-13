@@ -2,23 +2,62 @@ module npu(
 	rst, clk,
 	we, oe,
 	data,
-	ready);
+	ready,
+	//debug
+	pe_state_r0,
+	state_r,
+	num_layers_r,
+	num_neurons_r3,
+	num_multadds,
+	state_count_r,
+	multadd_count_r,
+	counter, fp_mac_acc, fp_mac_a, fp_mac_b, fp_mac_output, ArrWgt_Rd, ArrWgt_Wr, InBuf_Rd, InBuf_Wr, OutBuf_Rd, OutBuf_Wr, pe_oe_0, OutBuf_i0, OutBuf_n_i0, OutBuf_Full, InBuf_i0, ArrWeights_i0, ArrWeights_i1);
+	
+//debug
+parameter IN_BUF_IND_SIZE = 5; // log2(32)
+parameter OUT_BUF_IND_SIZE = 5; // log2(32)
+parameter ARR_WGT_IND_SIZE = 12;
+output [2:0] pe_state_r0;
+output [3:0] state_r;
+output [1:0] num_layers_r;
+output [4:0] num_neurons_r3;
+output [5:0] num_multadds;
+output [4:0] state_count_r;
+output [5:0] multadd_count_r;
+output [31:0] fp_mac_output;
+output [31:0] fp_mac_a;
+output [31:0] fp_mac_b;
+output [4:0]  counter;
+output fp_mac_acc;
+output [IN_BUF_IND_SIZE-1:0] InBuf_Rd;
+output [IN_BUF_IND_SIZE-1:0] InBuf_Wr;
+output [OUT_BUF_IND_SIZE-1:0] OutBuf_Rd;
+output [OUT_BUF_IND_SIZE-1:0] OutBuf_Wr;
+output [ARR_WGT_IND_SIZE-1:0] ArrWgt_Rd; // = {ARR_WGT_IND_SIZE{1'b0}}; 	// read index
+output [ARR_WGT_IND_SIZE-1:0] ArrWgt_Wr; // = {ARR_WGT_IND_SIZE{1'b0}}; 	// write index 
+output pe_oe_0;
+output [31:0] InBuf_i0;
+output [31:0] ArrWeights_i0;
+output [31:0] ArrWeights_i1;
+output [31:0] OutBuf_i0;
+output [31:0] OutBuf_n_i0;
+output OutBuf_Full;
 
 input         rst, clk, we, oe;
 inout signed  [31:0] data;
 output        ready;
 
-assign ready = (state_w == SEND_O)? 1'b1: 1'b0;
 
 // ===== PE i/o =====
-parameter PE_MA      = 3'd0;  //multiply & add
-parameter PE_MAB     = 3'd1;  //multiply & add (data from buffer)
-parameter PE_MABO    = 3'd7;  //multiply & add (data from buffer/its own output)
-parameter PE_ACT     = 3'd2;  //activation function
-parameter PE_ACT_CLR = 3'd3;  //activation function with clearing buffer
-parameter PE_LOAD    = 3'd4;  //load weights and biases
-parameter PE_IDLE    = 3'd5;
-parameter PE_BIAS    = 3'd6;  //adding biases (multiply 1 & add)
+	parameter PE_IDLE    = 3'd0;
+	parameter PE_LOAD    = 3'd1;  //load weights and biases
+	parameter PE_MA      = 3'd2;  //multiply & add
+	parameter PE_MAB     = 3'd3;  //multiply & add (data from buffer)
+	parameter PE_MABO    = 3'd4;
+	parameter PE_BIAS    = 3'd5;  //adding biases (multiply 1 & add)
+	parameter PE_ACT     = 3'd6;  //activation function
+	parameter PE_ACT_CLR = 3'd7;  //activation function with clearing buffer
+
 
 // PE i/o
 reg [2:0]   pe_state_r[0:7],
@@ -71,18 +110,28 @@ reg [4:0] current_num_neurons;
 //num_iterations means the iterations needed per layer
 wire [1:0] num_iterations;
 //num_busy_pes is the number of non-idle pes in the last iteration of the layer
-reg [2:0] num_busy_pes;
+wire [2:0] num_busy_pes;
 
 reg do_act;
 
+// ======== input & output ========
+assign ready = (state_w == SEND_O)? 1'b1: 1'b0;
 
+// ======== debug =======
+assign pe_state_r0 = pe_state_r[0];
+assign pe_oe_0 = pe_oe[0];
+assign num_neurons_r3 = num_neurons_r[3];
+
+// ===== internal registers & wires =====
 // num_layers & num_neurons
-assign num_layers_w = (state_r == CONFIG && state_count_r == 5'd0)? data_i: num_layers_r;
-integer i_nn;
-for(i_nn = 0; i_nn < 4; i = i+1) begin
-	assign num_neurons_w[i_nn] = (state_r == CONFIG && state_count_r == i_nn+1)? data_i: num_neurons_r[i_nn];
+assign num_layers_w = (state_r == CONFIG && state_count_r == 5'd0)? data[1:0]: num_layers_r;
+genvar i_nn;
+generate
+for(i_nn = 0; i_nn < 4; i_nn = i_nn+1) begin: num_neurons
+	assign num_neurons_w[i_nn] = (state_r == CONFIG && state_count_r == i_nn+1)? data[4:0]: num_neurons_r[i_nn];
 end
-assign do_act_w = (state_r == CONFIG && state_count_r == 5'd5)? data_i[2:0]: do_act_r;
+endgenerate
+assign do_act_w = (state_r == CONFIG && state_count_r == 5'd5)? data[2:0]: do_act_r;
 /*
 always@(*) begin
 	num_neurons_w[0] = num_neurons_r[0];
@@ -159,27 +208,23 @@ end
 // pe_w_id
 assign pe_w_id = state_count_w & 5'b00111;
 
-// num_iterations & num_multadds & num_busy_pes & do_act
-assign num_iterations = current_num_neurons >> 3;
-assign num_busy_pes = current_num_neurons & 5'b00111;
+// num_iterations& num_busy_pes & do_act
+assign num_iterations = (current_num_neurons >> 3);
+assign num_busy_pes = (current_num_neurons & 5'b00111);
 always@(*) begin
 	current_num_neurons = 5'd0;
-	num_multadds = 5'd0;
 	do_act = 1'b0;
 	case(state_r)
 		LAYER_H1: begin
 			current_num_neurons = num_neurons_r[1];
-			num_multadds = num_neurons_r[0];
 			do_act = do_act_r[0];
 		end
 		LAYER_H2: begin
 			current_num_neurons = num_neurons_r[2];
-			num_multadds = num_neurons_r[1];
 			do_act = do_act_r[1];
 		end
 		LAYER_O: begin
 			current_num_neurons = num_neurons_r[3];
-			num_multadds = num_neurons_r[2];
 			do_act = do_act_r[2];
 		end
 	endcase
@@ -187,6 +232,30 @@ end
 
 // TODO: change signal names
 // ===== connection to PEs =====
+//debug
+pe PE0(.Clock(clk), .Reset(rst),
+	.Ctrl(pe_state_r[0]),
+	.OutputCtrl(pe_oe[0]),
+	.Data(data),
+	.EnableAct(do_act),
+	.fp_mac_output(fp_mac_output),
+	.fp_mac_a(fp_mac_a),
+	.fp_mac_b(fp_mac_b),
+	.counter(counter), 
+	.fp_mac_acc(fp_mac_acc), 
+	.ArrWgt_Rd(ArrWgt_Rd), 
+	.ArrWgt_Wr(ArrWgt_Wr), 
+	.InBuf_Rd(InBuf_Rd), 
+	.InBuf_Wr(InBuf_Wr), 
+	.OutBuf_Rd(OutBuf_Rd), 
+	.OutBuf_Wr(OutBuf_Wr),
+	.InBuf_i0(InBuf_i0),
+	.ArrWeights_i0(ArrWeights_i0),
+	.ArrWeights_i1(ArrWeights_i1),
+	.OutBuf_i0(OutBuf_i0),
+	.OutBuf_n_i0(OutBuf_n_i0),
+	.OutBuf_Full(OutBuf_Full));
+/*
 pe PE0(.Clock(clk), .Reset(rst),
 	.Ctrl(pe_state_w[0]),
 	.OutputCtrl(pe_oe[0]),
@@ -234,7 +303,7 @@ pe PE7(.Clock(clk), .Reset(rst),
 	.OutputCtrl(pe_oe[7]),
 	.Data(data),
 	.EnableAct(do_act));
-
+*/
 // ========= combinational =========
 // state
 always@(*) begin
@@ -353,11 +422,11 @@ always@(*) begin
 end
 
 // pe_state
-integer i
-for(i = 0; i < 8; i = i+1) begin
+integer i;
 always@(*) begin
+for(i = 0; i < 8; i = i+1) begin
 	pe_state_w[i] = pe_state_r[i];
-	case(pe_state_r)
+	case(pe_state_r[i])
 		PE_IDLE: begin
 			if((state_w == LOAD_W1 || state_w == LOAD_W2 || state_w == LOAD_WO) && pe_w_id == i) begin
 				pe_state_w[i] = PE_LOAD;
@@ -414,10 +483,10 @@ always@(*) begin
 		end
 		PE_ACT_CLR: begin
 			if((do_act == 1'b1 && pe_count_r == CYCLES_ACT) || do_act == 1'b0) begin
-				if(i == 0) begin
+				if(i == 0 && state_w != SEND_O) begin
 					pe_state_w[i] = PE_MABO;
 				end
-				else if(state_w != state_r && (i <= num_busy_pes || num_iterations > 0)) begin
+				else if(state_w != state_r && state_w != SEND_O && (i <= num_busy_pes || num_iterations > 0)) begin // if enters next layer and should be working
 					pe_state_w[i] = PE_MA;
 				end
 				else begin
@@ -433,8 +502,9 @@ end
 // two cases to be 1'b1:
 // 1. broadcasting output to PEs representing neurons in the next layer
 // 2. SEND_O state
-integer i_po;
-for(i_po = 0; i_po < 8; i_po = i_po+1) begin
+genvar i_po;
+generate
+for(i_po = 0; i_po < 8; i_po = i_po+1) begin: output_en
 	assign pe_oe[i_po] = (pe_state_r[i_po] == PE_MABO ||
 						  (pe_state_r[i_po] == PE_IDLE &&
 						   (state_r == LAYER_H2 || state_r == LAYER_O) && num_layers_r[1] != 2'd0 &&
@@ -442,6 +512,7 @@ for(i_po = 0; i_po < 8; i_po = i_po+1) begin
 					       (multadd_count_w & 6'b000111) == i_po) ||
 						  (state_r == SEND_O && oe == 1'b1 && state_count_r == i_po))? 1'b1: 1'b0;
 end
+endgenerate
 
 // ========= sequential    =========
 always@(posedge clk or posedge rst) begin
@@ -459,7 +530,10 @@ always@(posedge clk or posedge rst) begin
 		multadd_count_r   <= 6'd0;
 		pe_count_r        <= 5'd0;
 		num_layers_r      <= 2'd0;
-		num_neurons_r     <= 5'd0;
+		num_neurons_r[0]  <= 5'd0;
+		num_neurons_r[1]  <= 5'd0;
+		num_neurons_r[2]  <= 5'd0;
+		num_neurons_r[3]  <= 5'd0;
 		do_act_r          <= 3'd0;
 	end
 	else begin
@@ -476,7 +550,10 @@ always@(posedge clk or posedge rst) begin
 		multadd_count_r   <= multadd_count_w;
 		pe_count_r        <= pe_count_w;
 		num_layers_r      <= num_layers_w;
-		num_neurons_r     <= num_neurons_w;
+		num_neurons_r[0]  <= num_neurons_w[0];
+		num_neurons_r[1]  <= num_neurons_w[1];
+		num_neurons_r[2]  <= num_neurons_w[2];
+		num_neurons_r[3]  <= num_neurons_w[3];
 		do_act_r          <= do_act_w;
 	end
 end

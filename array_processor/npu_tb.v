@@ -35,8 +35,12 @@ module npu_tb();
 	wire [11:0] ArrWgt_Rd; // = {ARR_WGT_IND_SIZE{1'b0}}; 	// read index
 	wire [11:0] ArrWgt_Wr; // = {ARR_WGT_IND_SIZE{1'b0}}; 	// write index 
 	wire pe_oe_0;
+	wire [31:0] InBuf_i0;
+	wire [31:0] ArrWeights_i0;
+	wire [31:0] ArrWeights_i1;
 	wire [31:0] OutBuf_i0;
 	wire [31:0] OutBuf_n_i0;
+	wire OutBuf_Full;
 	/*
 	wire fp_add_en;
 	wire [31:0] fp_add_a;
@@ -74,8 +78,12 @@ module npu_tb();
 	.OutBuf_Rd(OutBuf_Rd), 
 	.OutBuf_Wr(OutBuf_Wr),
 	.pe_oe_0(pe_oe_0),
+	.InBuf_i0(InBuf_i0),
+	.ArrWeights_i0(ArrWeights_i0),
+	.ArrWeights_i1(ArrWeights_i1),
 	.OutBuf_i0(OutBuf_i0),
-	.OutBuf_n_i0(OutBuf_n_i0));
+	.OutBuf_n_i0(OutBuf_n_i0),
+	.OutBuf_Full(OutBuf_Full));
 	
 	
 	always begin
@@ -128,6 +136,7 @@ module npu_tb();
 		
 		#(`CYCLE);
 		we = 1'b0;
+		data = 32'bz;
 		
 		#(`CYCLE*5);
 		oe = 1;

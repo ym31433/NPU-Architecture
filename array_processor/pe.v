@@ -44,16 +44,21 @@
 
 //module PE(Clock, Reset, Ctrl, OutputCtrl, DataIn, DataOut);
 //module pe(Clock, Reset, Ctrl, OutputCtrl, EnableAct, Data);
-module pe(Clock, Reset, Ctrl, OutputCtrl, EnableAct, Data, counter, ArrWgt_Rd, ArrWgt_Wr, ArrWeights_1, fp_mac_acc, fp_mac_a, fp_mac_b, fp_mac_output, fp_add_a, fp_add_b, fp_add_en, fp_add_output, fp_div_a, fp_div_b, fp_div_en, fp_div_output);
-
-output [4:0]  counter;
+//module pe(Clock, Reset, Ctrl, OutputCtrl, EnableAct, Data, counter, ArrWgt_Rd, ArrWgt_Wr, ArrWeights_1, fp_mac_acc, fp_mac_a, fp_mac_b, fp_mac_output, fp_add_a, fp_add_b, fp_add_en, fp_add_output, fp_div_a, fp_div_b, fp_div_en, fp_div_output);
+//module pe(Clock, Reset, Ctrl, OutputCtrl, EnableAct, Data, counter, fp_mac_acc, fp_mac_a, fp_mac_b, fp_mac_output, ArrWgt_Rd, ArrWgt_Wr, InBuf_Rd, InBuf_Wr, OutBuf_Rd, OutBuf_Wr, OutBuf_i0, OutBuf_n_i0, OutBuf_Full, InBuf_i0, ArrWeights_i0, ArrWeights_i1);
+module pe(Clock, Reset, Ctrl, OutputCtrl, EnableAct, Data, counter, fp_mac_acc, fp_mac_a, fp_mac_b, fp_mac_output, ArrWgt_Rd, ArrWgt_Wr, InBuf_Rd, InBuf_Wr, OutBuf_Rd, OutBuf_Wr, OutBuf_i0, OutBuf_n_i0, OutBuf_Full, InBuf_i0, ArrWeights_i0, ArrWeights_i1);
+/*
 output [11:0] ArrWgt_Rd;
 output [11:0] ArrWgt_Wr;
 output [31:0] ArrWeights_1;
+*/
+output [4:0]  counter;
 output fp_mac_acc;
 output [31:0] fp_mac_a;
 output [31:0] fp_mac_b;
 output [31:0] fp_mac_output;
+output OutBuf_Full;
+/*
 output fp_add_en;
 output [31:0] fp_add_a;
 output [31:0] fp_add_b;
@@ -62,7 +67,7 @@ output fp_div_en;
 output [31:0] fp_div_a;
 output [31:0] fp_div_b;
 output [31:0] fp_div_output;
-
+*/
 
 //--------------------------------
 // GENERAL PARAMETER VALUES:
@@ -127,6 +132,20 @@ parameter TRUE = 1'b1;
 parameter FALSE = 1'b0;
 //--------------------------------
 
+output [IN_BUF_IND_SIZE-1:0] InBuf_Rd;
+output [IN_BUF_IND_SIZE-1:0] InBuf_Wr;
+output [OUT_BUF_IND_SIZE-1:0] OutBuf_Rd;
+output [OUT_BUF_IND_SIZE-1:0] OutBuf_Wr;
+output [ARR_WGT_IND_SIZE-1:0] ArrWgt_Rd; // = {ARR_WGT_IND_SIZE{1'b0}}; 	// read index
+output [ARR_WGT_IND_SIZE-1:0] ArrWgt_Wr; // = {ARR_WGT_IND_SIZE{1'b0}}; 	// write index 
+output [31:0] InBuf_i0;
+output [31:0] ArrWeights_i0;
+output [31:0] ArrWeights_i1;
+output [31:0] OutBuf_i0;
+output [31:0] OutBuf_n_i0;
+
+//--------------------------------
+
 input Clock;
 input Reset;
 input [CTRL_SIZE-1:0] Ctrl;		// control signal (for PE operation)
@@ -169,7 +188,12 @@ reg signed [DATA_SIZE-1:0] ArrWeights [0:WGT_ARR_LEN-1];	// array of weights to 
 reg signed [DATA_SIZE-1:0] ArrWeights_n [0:WGT_ARR_LEN-1];	// array of weights to be used in multiply-add operations
 
 // DEBUG
-assign ArrWeights_1 = ArrWeights[1];
+//assign ArrWeights_1 = ArrWeights[1];
+assign InBuf_i0 = InBuf[0];
+assign ArrWeights_i0 = ArrWeights[0];
+assign ArrWeights_i1 = ArrWeights[1];
+assign OutBuf_i0 = OutBuf[0];
+assign OutBuf_n_i0 = OutBuf_n[0];
 
 // Pointers for read/write in the array of weights; and flags for full/empty (?).
 reg [ARR_WGT_IND_SIZE-1:0] ArrWgt_Wr_n; // {ARR_WGT_IND_SIZE{1'b0}}; 	// write index 
@@ -258,6 +282,7 @@ begin
 	OutBuf_Wr_n = OutBuf_Wr;
 	OutBuf_Rd_n = OutBuf_Rd;
 	OutBuf_Full_n = OutBuf_Full;
+	OutBuf_Empty_n = OutBuf_Empty;
 	ArrWgt_Wr_n = ArrWgt_Wr;
 	ArrWgt_Rd_n = ArrWgt_Rd;
 	ArrWgt_Full_n = ArrWgt_Full;
@@ -284,9 +309,6 @@ begin
 	  PE_MA: // perform multiply-add calculation
 	  begin	
 	   fp_mac_acc = 1; // by default, turn on the accumulate flag
-		
-		fp_mac_a = 0;
-		fp_mac_b = 0;
 		
 		// set up the inputs 
 		fp_mac_a = Data;
@@ -334,8 +356,6 @@ begin
 	  PE_MAB:
 	  begin	
 		fp_mac_acc = 1; 	// by default turn on accumulate flag
-		fp_mac_a = 0;
-		fp_mac_b = 0;
 		
 		// want to perform this operation:
 		// CurrVal <= CurrVal + ( InBuf[InBuf_Rd] * ArrWeights[ArrWgt_Rd] );
@@ -368,8 +388,6 @@ begin
 	  PE_MABO:
 	  begin	
 		fp_mac_acc = 1; 	// by default turn on accumulate flag
-		fp_mac_a = 0;
-		fp_mac_b = 0;
 		
 		// want to perform this operation:
 		// CurrVal <= CurrVal + ( OutBuf[OutBuf_Rd] * ArrWeights[ArrWgt_Rd] );
@@ -427,8 +445,8 @@ begin
 	  PE_BIAS:
 	  begin 
 		fp_mac_acc = 1; 	// by default, accumulate flag must be on during bias
-		fp_mac_a = 0;
-		fp_mac_b = 0;
+		fp_mac_a = 32'd0;
+		fp_mac_b = 32'd0;
 		
 		if (counter == 0) 
 		begin 
@@ -676,6 +694,8 @@ begin
 			
 	  PE_LOAD:	// load weight value to array
 	  begin 
+		fp_mac_a = 32'd0;
+		fp_mac_b = 32'd0;
 		// if array is full, do not update the array 
 		if (ArrWgt_Full == FALSE)
 		begin 
