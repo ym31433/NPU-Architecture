@@ -1,0 +1,25 @@
+Format for train/input.txt:
+    - first line is the number of data
+    - for the rest of the line, each line is one data
+        each data has 10 values, which is the value of 10 input neurons
+
+Format for train/golden.txt:
+    - first line is the number of data
+        (should be the same as the first line in input.txt)
+    - for the rest of the line, each line is one data
+        each data has 1 value, which is used to compare with the output neuron value
+
+Format for train/train_result/*:
+    - these file are output files generated from Neural Networks
+        accuracies come from the comparison between these files and train/golden.txt
+    - each line is one data
+        each data has 1 value, which is the value of the output neuron
+
+
+inference/input.txt
+
+inference/golden.txt
+
+inference/inference_result/cpu/*
+
+inference/inference_result/array_processor/*
