@@ -1,6 +1,7 @@
 report/
 npu_old.v
 hotspot_old/
+benchmark/log/
 
 # quartus files
 array_processor/*.qsys

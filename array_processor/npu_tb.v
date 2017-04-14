@@ -1,5 +1,12 @@
 `timescale 100ps/1ps
 `define CYCLE 50
+`define NUM_LAYERS 2
+`define NUM_IN 10
+`define NUM_H1 0
+`define NUM_H2 0
+`define NUM_OUT 1
+`define IN_FILE "/home/cosine/spring2017/cs533/project/benchmark/hotspot/data/pipelined_vector/input_hex.dat"
+`define W_FILE "/home/cosine/spring2017/cs533/project/benchmark/hotspot/nn_config/pipelined_vector/10_0_0_1_hex.dat"
 
 module npu_tb();
 	reg clk, rst;
@@ -89,6 +96,8 @@ module npu_tb();
 	always begin
 		#(`CYCLE/2) clk = ~clk;
 	end
+	
+	initial $readmemh (`INFILE, in);
 	
 	initial begin
 		#0;
