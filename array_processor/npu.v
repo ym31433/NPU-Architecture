@@ -373,7 +373,7 @@ always@(*) begin
 			end
 		end
 		SEND_O: begin
-			if(state_count_r == num_neurons_r[3]) begin
+			if(state_count_r == num_neurons_r[3] && oe == 1'b1) begin
 				state_w = IDLE;
 			end
 		end

@@ -1,10 +1,14 @@
 `timescale 100ps/1ps
 `define CYCLE 50
-`define NUM_LAYERS 2
-`define NUM_IN 10
+`define NUM_LAYERS 0 // 2 layers
+`define NUM_IN 9 // 10 neurons
 `define NUM_H1 0
 `define NUM_H2 0
-`define NUM_OUT 1
+`define NUM_OUT 0 // 1 neuron
+`define ACT 0 // no activation function
+`define NUM_W 11
+//`define NUM_MA 10 // 10 multiply-adds (without bias)
+
 `define IN_FILE "/home/cosine/spring2017/cs533/project/benchmark/hotspot/data/pipelined_vector/input_hex.dat"
 `define W_FILE "/home/cosine/spring2017/cs533/project/benchmark/hotspot/nn_config/pipelined_vector/10_0_0_1_hex.dat"
 
@@ -21,6 +25,11 @@ module npu_tb();
 	wire [5:0] num_multadds;
    wire [4:0] state_count;
    wire [5:0] multadd_count;
+	
+	reg signed [31:0] in[0:`NUM_IN];
+	reg signed [31:0] w[0:`NUM_W-1];
+	integer i;
+	
 	/*
 	reg pe_oe;
 	reg do_act;
@@ -97,7 +106,8 @@ module npu_tb();
 		#(`CYCLE/2) clk = ~clk;
 	end
 	
-	initial $readmemh (`INFILE, in);
+	initial $readmemh (`IN_FILE, in);
+	initial $readmemh (`W_FILE, w);
 	
 	initial begin
 		#0;
@@ -116,41 +126,68 @@ module npu_tb();
 		#(`CYCLE/2);
 		we = 1'b1;
 		
+		
+		/**** send configurations ****/
 		#(`CYCLE);
-		data = 32'd0; // 2 layers
+		data = `NUM_LAYERS; // 2 layers
 		
 		#(`CYCLE);
-		data = 32'd0; // 1 input neuron
+		data = `NUM_IN; // 10 input neuron
 		
 		#(`CYCLE);
-		data = 32'd0;
+		data = `NUM_H1;
 		
 		#(`CYCLE);
-		data = 32'd0;
+		data = `NUM_H2;
 		
 		#(`CYCLE);
-		data = 32'd0; // 1 output neuron
+		data = `NUM_OUT; // 1 output neuron
 		
 		#(`CYCLE);
-		data = 32'd0; // no activation function
+		data = `ACT; // no activation function
 		
+		
+		/**** send wieghts ****/
+		for(i = 0; i < `NUM_W; i = i+1) begin
+			#(`CYCLE);
+			data = w[i];
+		end
+		/*
 		#(`CYCLE);
 		data = {1'b0,1'b1,30'b0};  //weight: 2
 		
 		#(`CYCLE);
 		data = 32'h45800000; //bias: 4096
+		*/
 		
+		
+		/**** first layer: send inputs ****/
+		for(i = 0; i <= `NUM_IN; i = i+1) begin
+			#(`CYCLE);
+			data = in[i];
+		end
+		/*
 		#(`CYCLE);
 		data = 32'h44800000; //intput1: 1024
-		
+		*/
 		#(`CYCLE);
 		we = 1'b0;
 		data = 32'bz;
 		
-		#(`CYCLE*5);
-		oe = 1;
 		
+		/**** rest of the layers calculation ****/
+		#(`CYCLE*50);
+		
+		
+		/**** receive outputs ****/
+		oe = 1;
 		#(`CYCLE*5);
+
+		$finish;
+		
+	end
+endmodule
+
 		
 		/*
 		pe_state = PE_LOAD;
@@ -219,7 +256,3 @@ module npu_tb();
 		#(`CYCLE*5);
 		*/
 		
-		$finish;
-		
-	end
-endmodule
