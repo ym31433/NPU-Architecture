@@ -177,7 +177,7 @@ def loss(outputs, goldens, benchmark):
     Returns:
         loss: loss tensor of type float
     '''
-    if benchmark == "hotspot":
+    if benchmark == "hotspot" or benchmark == "hotspot_5":
         return tf.reduce_mean(tf.abs(tf.sub(outputs, goldens)))
     elif benchmark == "fft":
         return tf.reduce_mean(tf.abs(tf.sub(outputs, goldens)))
@@ -219,7 +219,7 @@ def error(outputs, goldens, benchmark):
     Returns:
         error: the sum of error in one batch of data
     '''
-    if benchmark == "hotspot":
+    if benchmark == "hotspot" or benchmark == "hotspot_5":
         return tf.reduce_sum(tf.abs(tf.div(tf.sub(outputs, goldens), goldens)))
     elif benchmark == "fft":
         #result = tf.reduce_sum(tf.abs(tf.sub(outputs, goldens)))

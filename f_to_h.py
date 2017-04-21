@@ -12,8 +12,11 @@ args = parser.parse_args()
 file_name = "benchmark/"+args.b+"/"+args.t+"/"+args.a+"/"+args.f
 
 in_file = open(file_name+".dat", 'r')
+if args.f == "input":
+    in_file.readline()
 
 numbers = [[float(i) for i in j.split()] for j in in_file.readlines()]
+#print numbers
 
 in_file.close()
 
@@ -21,9 +24,10 @@ out_file = open(file_name+"_hex.dat", 'w')
 
 for i in xrange(len(numbers)):
     for j in xrange(len(numbers[0])):
+        #print len(numbers[0])
         #print numbers[i][j]
         #print struct.pack(">f", numpy.float32(numbers[i][j])).encode("hex")
-        out_file.write(str(struct.pack(">f", numbers[i][j]).encode("hex")) + " ")
-    out_file.write("\n")
+        out_file.write(str(struct.pack(">f", numbers[i][j]).encode("hex")) + "\n")
+    #out_file.write("\n")
 
 out_file.close()

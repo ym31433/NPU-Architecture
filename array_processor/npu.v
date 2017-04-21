@@ -232,7 +232,7 @@ end
 
 // TODO: change signal names
 // ===== connection to PEs =====
-//debug
+/*debug
 pe PE0(.Clock(clk), .Reset(rst),
 	.Ctrl(pe_state_r[0]),
 	.OutputCtrl(pe_oe[0]),
@@ -255,7 +255,7 @@ pe PE0(.Clock(clk), .Reset(rst),
 	.OutBuf_i0(OutBuf_i0),
 	.OutBuf_n_i0(OutBuf_n_i0),
 	.OutBuf_Full(OutBuf_Full));
-/*
+*/
 pe PE0(.Clock(clk), .Reset(rst),
 	.Ctrl(pe_state_w[0]),
 	.OutputCtrl(pe_oe[0]),
@@ -303,7 +303,7 @@ pe PE7(.Clock(clk), .Reset(rst),
 	.OutputCtrl(pe_oe[7]),
 	.Data(data),
 	.EnableAct(do_act));
-*/
+
 // ========= combinational =========
 // state
 always@(*) begin

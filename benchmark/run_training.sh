@@ -32,6 +32,9 @@ do
     esac
 done
 
+mkdir -p ${BENCHMARK}/data/train/train_result
+mkdir -p ${BENCHMARK}/nn_config
+
 python train_dnn.py --benchmark=$BENCHMARK \
     --learning_rate=$LEARNING_RATE --max_steps=$MAX_STEPS \
     --hidden1=$H1 --hidden2=$H2 \
