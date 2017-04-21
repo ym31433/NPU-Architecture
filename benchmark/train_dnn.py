@@ -87,13 +87,13 @@ def run_training():
                     data_sets.num_in_neuron, data_sets.num_out_neuron, None)
         else:
             hidden1 = util.layer('hidden1', input_pl,
-                    data_sets.num_in_neuron, FLAGS.hidden1, tf.sigmoid)
+                    data_sets.num_in_neuron, FLAGS.hidden1, util.fast_sigmoid)
             if FLAGS.hidden2 == 0:
                 outputs = util.layer('output_layer', hidden1,
                         FLAGS.hidden1, data_sets.num_out_neuron, None)
             else:
                 hidden2 = util.layer('hidden2', hidden1,
-                        FLAGS.hidden1, FLAGS.hidden2, tf.sigmoid)
+                        FLAGS.hidden1, FLAGS.hidden2, util.fast_sigmoid)
                 outputs = util.layer('output_layer', hidden2,
                         FLAGS.hidden2, data_sets.num_out_neuron, None)
 

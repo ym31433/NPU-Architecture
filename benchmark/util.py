@@ -7,6 +7,9 @@ feed-forward neural network
 import tensorflow as tf
 import numpy as np
 
+def fast_sigmoid(x):
+    return tf.div(x, (tf.add(1, tf.abs(x))))
+
 def generate_placeholder(num_in, num_out, batch_size, type_in, type_out):
     '''generate placeholder for inputs and golden output
 
