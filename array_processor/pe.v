@@ -44,21 +44,23 @@
 
 //module PE(Clock, Reset, Ctrl, OutputCtrl, DataIn, DataOut);
 //module pe(Clock, Reset, Ctrl, OutputCtrl, EnableAct, Data);
+module pe(Clock, Reset, Ctrl, OutputCtrl, EnableAct, Data, fp_mac_a, fp_mac_b, fp_mac_output);
 //module pe(Clock, Reset, Ctrl, OutputCtrl, EnableAct, Data, counter, ArrWgt_Rd, ArrWgt_Wr, ArrWeights_1, fp_mac_acc, fp_mac_a, fp_mac_b, fp_mac_output, fp_add_a, fp_add_b, fp_add_en, fp_add_output, fp_div_a, fp_div_b, fp_div_en, fp_div_output);
 //module pe(Clock, Reset, Ctrl, OutputCtrl, EnableAct, Data, counter, fp_mac_acc, fp_mac_a, fp_mac_b, fp_mac_output, ArrWgt_Rd, ArrWgt_Wr, InBuf_Rd, InBuf_Wr, OutBuf_Rd, OutBuf_Wr, OutBuf_i0, OutBuf_n_i0, OutBuf_Full, InBuf_i0, ArrWeights_i0, ArrWeights_i1);
-module pe(Clock, Reset, Ctrl, OutputCtrl, EnableAct, Data, counter, fp_mac_acc, fp_mac_a, fp_mac_b, fp_mac_output, ArrWgt_Rd, ArrWgt_Wr, InBuf_Rd, InBuf_Wr, OutBuf_Rd, OutBuf_Wr, OutBuf_i0, OutBuf_n_i0, OutBuf_Full, InBuf_i0, ArrWeights_i0, ArrWeights_i1);
+//module pe(Clock, Reset, Ctrl, OutputCtrl, EnableAct, Data, counter, fp_mac_acc, fp_mac_a, fp_mac_b, fp_mac_output, ArrWgt_Rd, ArrWgt_Wr, InBuf_Rd, InBuf_Wr, OutBuf_Rd, OutBuf_Wr, OutBuf_i0, OutBuf_n_i0, OutBuf_Full, InBuf_i0, ArrWeights_i0, ArrWeights_i1);
 /*
 output [11:0] ArrWgt_Rd;
 output [11:0] ArrWgt_Wr;
 output [31:0] ArrWeights_1;
-*/
+
 output [4:0]  counter;
 output fp_mac_acc;
+*/
 output [31:0] fp_mac_a;
 output [31:0] fp_mac_b;
 output [31:0] fp_mac_output;
-output OutBuf_Full;
 /*
+output OutBuf_Full;
 output fp_add_en;
 output [31:0] fp_add_a;
 output [31:0] fp_add_b;
@@ -130,6 +132,7 @@ parameter WGT_ARR_LEN = MAX_NEURONS_PER_STAGE * MAX_NEURONS_PER_STAGE * (MAX_NUM
 // Basic Boolean values:
 parameter TRUE = 1'b1;
 parameter FALSE = 1'b0;
+/*
 //--------------------------------
 
 output [IN_BUF_IND_SIZE-1:0] InBuf_Rd;
@@ -145,6 +148,7 @@ output [31:0] OutBuf_i0;
 output [31:0] OutBuf_n_i0;
 
 //--------------------------------
+*/
 
 input Clock;
 input Reset;
@@ -188,12 +192,14 @@ reg signed [DATA_SIZE-1:0] ArrWeights [0:WGT_ARR_LEN-1];	// array of weights to 
 reg signed [DATA_SIZE-1:0] ArrWeights_n [0:WGT_ARR_LEN-1];	// array of weights to be used in multiply-add operations
 
 // DEBUG
+/*
 //assign ArrWeights_1 = ArrWeights[1];
 assign InBuf_i0 = InBuf[0];
 assign ArrWeights_i0 = ArrWeights[0];
 assign ArrWeights_i1 = ArrWeights[1];
 assign OutBuf_i0 = OutBuf[0];
 assign OutBuf_n_i0 = OutBuf_n[0];
+*/
 
 // Pointers for read/write in the array of weights; and flags for full/empty (?).
 reg [ARR_WGT_IND_SIZE-1:0] ArrWgt_Wr_n; // {ARR_WGT_IND_SIZE{1'b0}}; 	// write index 

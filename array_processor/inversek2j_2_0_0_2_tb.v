@@ -1,19 +1,19 @@
 `timescale 100ps/1ps
 `define CYCLE 50
 `define NUM_LAYERS 0 // 2 layers
-`define NUM_IN 9 // 10 neurons
+`define NUM_IN 1 // 2 neurons
 `define NUM_H1 0
 `define NUM_H2 0
-`define NUM_OUT 0 // 1 neuron
+`define NUM_OUT 1 // 2 neuron
 `define ACT 0 // no activation function
-`define NUM_W 11 // number of weights and biases
+`define NUM_W 6 // number of weights and biases
 //`define NUM_MA 10 // 10 multiply-adds (without bias)
 `define NUM_CALC 5 // number of cycles to calculate
-`define NUM_DATA 65536 // number of data sets
+`define NUM_DATA 100000 // number of data sets
 
-`define IN_FILE "/home/cosine/spring2017/cs533/project/benchmark/hotspot/data/pipelined_vector/input_hex.dat"
-`define W_FILE "/home/cosine/spring2017/cs533/project/benchmark/hotspot/nn_config/pipelined_vector/10_0_0_1_hex.dat"
-`define OUT_FILE "/home/cosine/spring2017/cs533/project/benchmark/hotspot/data/pipelined_vector/output_hex.dat"
+`define IN_FILE "/home/cosine/spring2017/cs533/project/benchmark/inversek2j/data/pipelined_vector/input_hex.dat"
+`define W_FILE "/home/cosine/spring2017/cs533/project/benchmark/inversek2j/nn_config/pipelined_vector/2_0_0_2_hex.dat"
+`define OUT_FILE "/home/cosine/spring2017/cs533/project/benchmark/inversek2j/data/pipelined_vector/2_0_0_2_hex.dat"
 
 module npu_tb();
 	reg clk, rst;
@@ -21,13 +21,17 @@ module npu_tb();
 	reg [31:0] data;
 	wire [31:0] data_w;
 	wire ready;
-	wire [2:0] pe_state;
+	
+	wire [2:0] pe_state_0, pe_state_1;
+	wire pe_oe_0, pe_oe_1;
+	
 	wire [3:0] state;
 	wire [1:0] num_layers;
 	wire [4:0] num_neurons_3;
 	wire [5:0] num_multadds;
    wire [4:0] state_count;
    wire [5:0] multadd_count;
+	
 	
 	reg signed [31:0] in[0:`NUM_IN];
 	reg signed [31:0] w[0:`NUM_W-1];
@@ -44,9 +48,13 @@ module npu_tb();
 	wire [31:0] ArrWeights_1;
 	wire fp_mac_acc;
 	*/
-	wire [31:0] fp_mac_a;
-	wire [31:0] fp_mac_b;
-	wire [31:0] fp_mac_output;
+	wire [31:0] fp_mac_a_0;
+	wire [31:0] fp_mac_b_0;
+	wire [31:0] fp_mac_output_0;
+	wire [31:0] fp_mac_a_1;
+	wire [31:0] fp_mac_b_1;
+	wire [31:0] fp_mac_output_1;
+	/*
 	wire [4:0]  counter;
 	wire fp_mac_acc;
 	wire [4:0] InBuf_Rd;
@@ -55,14 +63,13 @@ module npu_tb();
 	wire [4:0] OutBuf_Wr;
 	wire [11:0] ArrWgt_Rd; // = {ARR_WGT_IND_SIZE{1'b0}}; 	// read index
 	wire [11:0] ArrWgt_Wr; // = {ARR_WGT_IND_SIZE{1'b0}}; 	// write index 
-	wire pe_oe_0;
 	wire [31:0] InBuf_i0;
 	wire [31:0] ArrWeights_i0;
 	wire [31:0] ArrWeights_i1;
 	wire [31:0] OutBuf_i0;
 	wire [31:0] OutBuf_n_i0;
 	wire OutBuf_Full;
-	/*
+	
 	wire fp_add_en;
 	wire [31:0] fp_add_a;
 	wire [31:0] fp_add_b;
@@ -85,9 +92,19 @@ module npu_tb();
 	parameter PE_ACT_CLR = 3'd7;  //activation function with clearing buffer
 
 
-	//test_fp_ip fp_ip(.clk(clk), .rst(rst), .ctrl(pe_state), .output_ctrl(pe_oe), .data(data_w), .do_act(do_act), .counter(counter), .ArrWgt_Rd(ArrWgt_Rd), .ArrWgt_Wr(ArrWgt_Wr), .ArrWeights_1(ArrWeights_1), .fp_mac_acc(fp_mac_acc), .fp_mac_a(fp_mac_a), .fp_mac_b(fp_mac_b), .fp_mac_q(fp_mac_q), .fp_add_en(fp_add_en), .fp_add_a(fp_add_a), .fp_add_b(fp_add_b), .fp_add_output(fp_add_output), .fp_div_en(fp_div_en), .fp_div_a(fp_div_a), .fp_div_b(fp_div_b), .fp_div_output(fp_div_output));
+	
 	//npu NPU(.rst(rst), .clk(clk), .we(we), .oe(oe), .data(data_w), .ready(ready));
-	npu NPU(.rst(rst), .clk(clk), .we(we), .oe(oe), .data(data_w), .ready(ready), .pe_state_r0(pe_state), .state_r(state), .num_layers_r(num_layers), .num_neurons_r3(num_neurons_3), .num_multadds(num_multadds), .state_count_r(state_count), .multadd_count_r(multadd_count), .fp_mac_a(fp_mac_a), .fp_mac_b(fp_mac_b), .fp_mac_output(fp_mac_output), 
+	npu NPU(.rst(rst), .clk(clk), .we(we), .oe(oe), .data(data_w), .ready(ready),
+	.pe_state_r0(pe_state_0), .pe_state_r1(pe_state_1), .pe_oe_0(pe_oe_0), .pe_oe_1(pe_oe_1),
+	.state_r(state), .num_layers_r(num_layers), .num_neurons_r3(num_neurons_3), .num_multadds(num_multadds), .state_count_r(state_count), .multadd_count_r(multadd_count),
+	.fp_mac_a_0(fp_mac_a_0), .fp_mac_b_0(fp_mac_b_0), .fp_mac_output_0(fp_mac_output_0),
+	.fp_mac_a_1(fp_mac_a_1), .fp_mac_b_1(fp_mac_b_1), .fp_mac_output_1(fp_mac_output_1)
+	);
+	/*
+	npu NPU(.rst(rst), .clk(clk), .we(we), .oe(oe), .data(data_w), .ready(ready),
+	.pe_state_r0(pe_state),
+	.state_r(state), .num_layers_r(num_layers), .num_neurons_r3(num_neurons_3), .num_multadds(num_multadds), .state_count_r(state_count), .multadd_count_r(multadd_count),
+	.fp_mac_a(fp_mac_a), .fp_mac_b(fp_mac_b), .fp_mac_output(fp_mac_output), 
 	.counter(counter), 
 	.fp_mac_acc(fp_mac_acc), 
 	.ArrWgt_Rd(ArrWgt_Rd), 
@@ -103,7 +120,7 @@ module npu_tb();
 	.OutBuf_i0(OutBuf_i0),
 	.OutBuf_n_i0(OutBuf_n_i0),
 	.OutBuf_Full(OutBuf_Full));
-	
+	*/
 	
 	always begin
 		#(`CYCLE/2) clk = ~clk;
@@ -116,7 +133,7 @@ module npu_tb();
 
 		infile = $fopen(`IN_FILE, "r");
 		wfile = $fopen(`W_FILE, "r");
-		outfile = $fopen(`OUT_FILE, "w");
+		outfile = $fopen(`OUT_FILE, "a");
 		
       /**** reset the NPU ****/
 		#0;
@@ -153,7 +170,7 @@ module npu_tb();
 			data = `NUM_LAYERS; // 2 layers
 			
 			#(`CYCLE);
-			data = `NUM_IN; // 10 input neuron
+			data = `NUM_IN; // 2 input neuron
 			
 			#(`CYCLE);
 			data = `NUM_H1;
@@ -162,7 +179,7 @@ module npu_tb();
 			data = `NUM_H2;
 			
 			#(`CYCLE);
-			data = `NUM_OUT; // 1 output neuron
+			data = `NUM_OUT; // 2 output neuron
 			
 			#(`CYCLE);
 			data = `ACT; // no activation function

@@ -31,5 +31,4 @@ mkdir -p benchmark/$BENCHMARK/nn_config/$ARCHITECTURE
 cp benchmark/$BENCHMARK/data/train/input.txt benchmark/$BENCHMARK/data/$ARCHITECTURE/input.dat
 cp benchmark/$BENCHMARK/nn_config/${TOPOLOGY}.txt benchmark/$BENCHMARK/nn_config/$ARCHITECTURE/${TOPOLOGY}.dat
 
-python f_to_h.py -t=data -f=input -b=$BENCHMARK -a=$ARCHITECTURE
-python f_to_h.py -t=nn_config -f=$TOPOLOGY -b=$BENCHMARK -a=$ARCHITECTURE
+python f_to_h.py -t=$TOPOLOGY -b=$BENCHMARK -a=$ARCHITECTURE

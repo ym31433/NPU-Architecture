@@ -13,7 +13,7 @@
 
 `define IN_FILE "/home/cosine/spring2017/cs533/project/benchmark/hotspot_5/data/pipelined_vector/input_hex.dat"
 `define W_FILE "/home/cosine/spring2017/cs533/project/benchmark/hotspot_5/nn_config/pipelined_vector/26_0_0_1_hex.dat"
-`define OUT_FILE "/home/cosine/spring2017/cs533/project/benchmark/hotspot_5/data/pipelined_vector/output_hex.dat"
+`define OUT_FILE "/home/cosine/spring2017/cs533/project/benchmark/hotspot_5/data/pipelined_vector/26_0_0_1_hex.dat"
 
 module npu_tb();
 	reg clk, rst;
@@ -21,6 +21,7 @@ module npu_tb();
 	reg [31:0] data;
 	wire [31:0] data_w;
 	wire ready;
+	/*
 	wire [2:0] pe_state;
 	wire [3:0] state;
 	wire [1:0] num_layers;
@@ -28,6 +29,7 @@ module npu_tb();
 	wire [5:0] num_multadds;
    wire [4:0] state_count;
    wire [5:0] multadd_count;
+	*/
 	
 	reg signed [31:0] in[0:`NUM_IN];
 	reg signed [31:0] w[0:`NUM_W-1];
@@ -43,7 +45,7 @@ module npu_tb();
 	wire [11:0] ArrWgt_Wr;
 	wire [31:0] ArrWeights_1;
 	wire fp_mac_acc;
-	*/
+	
 	wire [31:0] fp_mac_a;
 	wire [31:0] fp_mac_b;
 	wire [31:0] fp_mac_output;
@@ -62,7 +64,7 @@ module npu_tb();
 	wire [31:0] OutBuf_i0;
 	wire [31:0] OutBuf_n_i0;
 	wire OutBuf_Full;
-	/*
+	
 	wire fp_add_en;
 	wire [31:0] fp_add_a;
 	wire [31:0] fp_add_b;
@@ -86,7 +88,8 @@ module npu_tb();
 
 
 	//test_fp_ip fp_ip(.clk(clk), .rst(rst), .ctrl(pe_state), .output_ctrl(pe_oe), .data(data_w), .do_act(do_act), .counter(counter), .ArrWgt_Rd(ArrWgt_Rd), .ArrWgt_Wr(ArrWgt_Wr), .ArrWeights_1(ArrWeights_1), .fp_mac_acc(fp_mac_acc), .fp_mac_a(fp_mac_a), .fp_mac_b(fp_mac_b), .fp_mac_q(fp_mac_q), .fp_add_en(fp_add_en), .fp_add_a(fp_add_a), .fp_add_b(fp_add_b), .fp_add_output(fp_add_output), .fp_div_en(fp_div_en), .fp_div_a(fp_div_a), .fp_div_b(fp_div_b), .fp_div_output(fp_div_output));
-	//npu NPU(.rst(rst), .clk(clk), .we(we), .oe(oe), .data(data_w), .ready(ready));
+	npu NPU(.rst(rst), .clk(clk), .we(we), .oe(oe), .data(data_w), .ready(ready));
+	/*
 	npu NPU(.rst(rst), .clk(clk), .we(we), .oe(oe), .data(data_w), .ready(ready), .pe_state_r0(pe_state), .state_r(state), .num_layers_r(num_layers), .num_neurons_r3(num_neurons_3), .num_multadds(num_multadds), .state_count_r(state_count), .multadd_count_r(multadd_count), .fp_mac_a(fp_mac_a), .fp_mac_b(fp_mac_b), .fp_mac_output(fp_mac_output), 
 	.counter(counter), 
 	.fp_mac_acc(fp_mac_acc), 
@@ -103,7 +106,7 @@ module npu_tb();
 	.OutBuf_i0(OutBuf_i0),
 	.OutBuf_n_i0(OutBuf_n_i0),
 	.OutBuf_Full(OutBuf_Full));
-	
+	*/
 	
 	always begin
 		#(`CYCLE/2) clk = ~clk;
@@ -116,7 +119,7 @@ module npu_tb();
 
 		infile = $fopen(`IN_FILE, "r");
 		wfile = $fopen(`W_FILE, "r");
-		outfile = $fopen(`OUT_FILE, "w");
+		outfile = $fopen(`OUT_FILE, "a");
 		
       /**** reset the NPU ****/
 		#0;
@@ -153,7 +156,7 @@ module npu_tb();
 			data = `NUM_LAYERS; // 2 layers
 			
 			#(`CYCLE);
-			data = `NUM_IN; // 10 input neuron
+			data = `NUM_IN; // 26 input neuron
 			
 			#(`CYCLE);
 			data = `NUM_H1;
@@ -186,7 +189,7 @@ module npu_tb();
 			
 			
 			/**** rest of the layers calculation ****/
-			#(`CYCLE*5);
+			#(`CYCLE*`NUM_CALC);
 			
 			
 			/**** receive outputs and write output data ****/

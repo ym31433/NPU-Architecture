@@ -16,18 +16,18 @@ import dataset
 
 flags = tf.app.flags
 FLAGS = flags.FLAGS
-flags.DEFINE_string('benchmark', 'hotspot', 'benchmark')
+flags.DEFINE_string('benchmark', 'inversek2j', 'benchmark')
 flags.DEFINE_float('learning_rate', 0.02, 'learning rate')
 flags.DEFINE_integer('batch_size', 100, 'batch size')
-flags.DEFINE_integer('max_steps', 9100, 'max training steps')
+flags.DEFINE_integer('max_steps', 2000, 'max training steps')
 flags.DEFINE_integer('hidden1',
         0, 'number of neurons in hidden layer 1')
 flags.DEFINE_integer('hidden2',
         0, 'number of layers in hidden layer 2')
 flags.DEFINE_string('data_dir',
-        '/home/cosine/spring2017/cs533/project/benchmark/fft/data/train/', 'data directory')
+        '/home/cosine/spring2017/cs533/project/benchmark/inversek2j/data/train/', 'data directory')
 flags.DEFINE_string('config_dir',
-        '/home/cosine/spring2017/cs533/project/benchmark/fft/nn_config/', 'simulation config file directory')
+        '/home/cosine/spring2017/cs533/project/benchmark/inversek2j/nn_config/', 'simulation config file directory')
 flags.DEFINE_string('input_data_type',
         'float', 'input data type: float or int')
 flags.DEFINE_string('output_data_type',
