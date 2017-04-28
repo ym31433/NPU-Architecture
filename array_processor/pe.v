@@ -43,8 +43,8 @@
 //**********************************************************/
 
 //module PE(Clock, Reset, Ctrl, OutputCtrl, DataIn, DataOut);
-//module pe(Clock, Reset, Ctrl, OutputCtrl, EnableAct, Data);
-module pe(Clock, Reset, Ctrl, OutputCtrl, EnableAct, Data, fp_mac_a, fp_mac_b, fp_mac_output);
+module pe(Clock, Reset, Ctrl, OutputCtrl, EnableAct, Data);
+//module pe(Clock, Reset, Ctrl, OutputCtrl, EnableAct, Data, fp_mac_a, fp_mac_b, fp_mac_output);
 //module pe(Clock, Reset, Ctrl, OutputCtrl, EnableAct, Data, counter, ArrWgt_Rd, ArrWgt_Wr, ArrWeights_1, fp_mac_acc, fp_mac_a, fp_mac_b, fp_mac_output, fp_add_a, fp_add_b, fp_add_en, fp_add_output, fp_div_a, fp_div_b, fp_div_en, fp_div_output);
 //module pe(Clock, Reset, Ctrl, OutputCtrl, EnableAct, Data, counter, fp_mac_acc, fp_mac_a, fp_mac_b, fp_mac_output, ArrWgt_Rd, ArrWgt_Wr, InBuf_Rd, InBuf_Wr, OutBuf_Rd, OutBuf_Wr, OutBuf_i0, OutBuf_n_i0, OutBuf_Full, InBuf_i0, ArrWeights_i0, ArrWeights_i1);
 //module pe(Clock, Reset, Ctrl, OutputCtrl, EnableAct, Data, counter, fp_mac_acc, fp_mac_a, fp_mac_b, fp_mac_output, ArrWgt_Rd, ArrWgt_Wr, InBuf_Rd, InBuf_Wr, OutBuf_Rd, OutBuf_Wr, OutBuf_i0, OutBuf_n_i0, OutBuf_Full, InBuf_i0, ArrWeights_i0, ArrWeights_i1);
@@ -55,11 +55,11 @@ output [31:0] ArrWeights_1;
 
 output [4:0]  counter;
 output fp_mac_acc;
-*/
+
 output [31:0] fp_mac_a;
 output [31:0] fp_mac_b;
 output [31:0] fp_mac_output;
-/*
+
 output OutBuf_Full;
 output fp_add_en;
 output [31:0] fp_add_a;

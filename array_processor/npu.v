@@ -6,10 +6,15 @@ module npu(
 	//debug
 	
 	pe_state_r0,
+	/*
 	pe_state_r1,
 	pe_oe_0,
 	pe_oe_1,
+	*/
 	state_r,
+	do_act,
+	pe_count_r
+	/*
 	num_layers_r,
 	num_neurons_r3,
 	num_multadds,
@@ -17,22 +22,26 @@ module npu(
 	multadd_count_r,
 	fp_mac_a_0, fp_mac_b_0, fp_mac_output_0,
 	fp_mac_a_1, fp_mac_b_1, fp_mac_output_1
-	/*
+	
 	counter, fp_mac_acc, fp_mac_a, fp_mac_b, fp_mac_output, ArrWgt_Rd, ArrWgt_Wr, InBuf_Rd, InBuf_Wr, OutBuf_Rd, OutBuf_Wr,  OutBuf_i0, OutBuf_n_i0, OutBuf_Full, InBuf_i0, ArrWeights_i0, ArrWeights_i1
 	*/
 	);
-	
+	/*
 //debug
 parameter IN_BUF_IND_SIZE = 5; // log2(32)
 parameter OUT_BUF_IND_SIZE = 5; // log2(32)
 parameter ARR_WGT_IND_SIZE = 12;
-
+*/
 output [2:0] pe_state_r0;
+/*
 output [2:0] pe_state_r1;
 output pe_oe_0;
 output pe_oe_1;
-
+*/
 output [3:0] state_r;
+output do_act;
+output [4:0] pe_count_r;
+/*
 output [1:0] num_layers_r;
 output [4:0] num_neurons_r3;
 output [5:0] num_multadds;
@@ -45,7 +54,7 @@ output [31:0] fp_mac_b_0;
 output [31:0] fp_mac_output_1;
 output [31:0] fp_mac_a_1;
 output [31:0] fp_mac_b_1;
-/*
+
 output [4:0]  counter;
 output fp_mac_acc;
 output [IN_BUF_IND_SIZE-1:0] InBuf_Rd;
@@ -99,7 +108,7 @@ reg [4:0] state_count_r, state_count_w;
 
 reg [5:0] multadd_count_r, multadd_count_w;  // counts how many mult_add to do and how many weights(bias) to load
 
-//TODO: don't know the actual cycles yet
+
 parameter CYCLES_MA  = 5'd3; // used in MA, MAB, BIAS. mac: 4 cycles
 parameter CYCLES_ACT = 5'd20; // used in ACT, ACT_CLR. add: 3 cycles; divide: 19 cycles
 reg [4:0] pe_count_r, pe_count_w; // counts the cycles to do FP MULT_ACC, DIV, ACT
@@ -137,11 +146,14 @@ reg do_act;
 assign ready = (state_w == SEND_O)? 1'b1: 1'b0;
 
 // ======== debug =======
+
 assign pe_state_r0 = pe_state_r[0];
+/*
 assign pe_state_r1 = pe_state_r[1];
 assign pe_oe_0 = pe_oe[0];
 assign pe_oe_1 = pe_oe[1];
 assign num_neurons_r3 = num_neurons_r[3];
+*/
 
 // ===== internal registers & wires =====
 // num_layers & num_neurons
@@ -278,6 +290,7 @@ pe PE0(.Clock(clk), .Reset(rst),
 	.OutBuf_n_i0(OutBuf_n_i0),
 	.OutBuf_Full(OutBuf_Full));
 	*/
+	/*
 pe PE0(.Clock(clk), .Reset(rst),
 	.Ctrl(pe_state_r[0]),
 	.OutputCtrl(pe_oe[0]),
@@ -295,7 +308,8 @@ pe PE1(.Clock(clk), .Reset(rst),
 	.fp_mac_output(fp_mac_output_1),
 	.fp_mac_a(fp_mac_a_1),
 	.fp_mac_b(fp_mac_b_1));
-/*
+	*/
+
 pe PE0(.Clock(clk), .Reset(rst),
 	.Ctrl(pe_state_r[0]),
 	.OutputCtrl(pe_oe[0]),
@@ -343,7 +357,7 @@ pe PE7(.Clock(clk), .Reset(rst),
 	.OutputCtrl(pe_oe[7]),
 	.Data(data),
 	.EnableAct(do_act));
-*/
+
 // ========= combinational =========
 // state
 always@(*) begin
@@ -393,7 +407,7 @@ always@(*) begin
 			end
 		end
 		LAYER_H1: begin
-			if(pe_state_r[0] == PE_ACT_CLR) begin
+			if(pe_state_r[0] == PE_ACT_CLR && pe_state_w[0] != pe_state_r[0]) begin
 				if(num_layers_r == ONE_HIDDEN) begin
 					state_w = LAYER_O;
 				end
@@ -403,12 +417,12 @@ always@(*) begin
 			end
 		end
 		LAYER_H2: begin
-			if(pe_state_r[0] == PE_ACT_CLR) begin
+			if(pe_state_r[0] == PE_ACT_CLR && pe_state_w[0] != pe_state_r[0]) begin
 				state_w = LAYER_O;
 			end
 		end
 		LAYER_O: begin
-			if(pe_state_r[0] == PE_ACT_CLR) begin
+			if(pe_state_r[0] == PE_ACT_CLR && pe_state_w[0] != pe_state_r[0]) begin
 				state_w = SEND_O;
 			end
 		end

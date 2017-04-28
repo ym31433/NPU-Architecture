@@ -1,19 +1,19 @@
 `timescale 100ps/1ps
 `define CYCLE 50
-`define NUM_LAYERS 0 // 2 layers
-`define NUM_IN 1 // 2 neurons
-`define NUM_H1 0
+`define NUM_LAYERS 1 // 3 layers
+`define NUM_IN 9 // 10 neurons
+`define NUM_H1 3 // 4 neurons
 `define NUM_H2 0
-`define NUM_OUT 1 // 2 neuron
-`define ACT 0 // no activation function
-`define NUM_W 6 // number of weights and biases
+`define NUM_OUT 0 // 1 neuron
+`define ACT 1 // hidden layer 1 activation function: 001
+`define NUM_W 49 // number of weights and biases
 //`define NUM_MA 10 // 10 multiply-adds (without bias)
-`define NUM_CALC 5 // number of cycles to calculate
-`define NUM_DATA 100000 // number of data sets
+`define NUM_CALC 40 // number of cycles to calculate
+`define NUM_DATA 65536 // number of data sets
 
-`define IN_FILE "/home/cosine/spring2017/cs533/project/benchmark/inversek2j/data/pipelined_vector/input_hex.dat"
-`define W_FILE "/home/cosine/spring2017/cs533/project/benchmark/inversek2j/nn_config/pipelined_vector/2_0_0_2_hex.dat"
-`define OUT_FILE "/home/cosine/spring2017/cs533/project/benchmark/inversek2j/data/pipelined_vector/2_0_0_2_hex.dat"
+`define IN_FILE "/home/cosine/spring2017/cs533/project/benchmark/hotspot/data/pipelined_vector/input_hex.dat"
+`define W_FILE "/home/cosine/spring2017/cs533/project/benchmark/hotspot/nn_config/pipelined_vector/10_4_0_1_hex.dat"
+`define OUT_FILE "/home/cosine/spring2017/cs533/project/benchmark/hotspot/data/pipelined_vector/10_4_0_1_hex.dat"
 
 module npu_tb();
 	reg clk, rst;
@@ -25,8 +25,12 @@ module npu_tb();
 	/*
 	wire [2:0] pe_state_0, pe_state_1;
 	wire pe_oe_0, pe_oe_1;
-	
+	*/
+	wire [2:0] pe_state_0;
 	wire [3:0] state;
+	wire do_act;
+	wire [4:0] pe_count;
+	/*
 	wire [1:0] num_layers;
 	wire [4:0] num_neurons_3;
 	wire [5:0] num_multadds;
@@ -94,7 +98,8 @@ module npu_tb();
 
 
 	
-	npu NPU(.rst(rst), .clk(clk), .we(we), .oe(oe), .data(data_w), .ready(ready));
+	//npu NPU(.rst(rst), .clk(clk), .we(we), .oe(oe), .data(data_w), .ready(ready));
+	npu NPU(.rst(rst), .clk(clk), .we(we), .oe(oe), .data(data_w), .ready(ready), .state_r(state), .pe_state_r0(pe_state_0), .do_act(do_act), .pe_count_r(pe_count));
 	/*
 	npu NPU(.rst(rst), .clk(clk), .we(we), .oe(oe), .data(data_w), .ready(ready),
 	.pe_state_r0(pe_state_0), .pe_state_r1(pe_state_1), .pe_oe_0(pe_oe_0), .pe_oe_1(pe_oe_1),
@@ -156,7 +161,7 @@ module npu_tb();
 		
 		/**** start the loop ****/
 		//for(iteration = 0; iteration < NUM_DATA; iteration = iteration + 1) begin
-		for(iteration = 0; iteration < 2; iteration = iteration + 1) begin
+		for(iteration = 0; iteration < 1; iteration = iteration + 1) begin
 			/**** read input file and weight file ****/
 			for(i = 0; i <= `NUM_IN; i = i + 1) begin
 				//$fgets(in[i], infile);
