@@ -4,19 +4,19 @@ hotspot_old/
 benchmark/log/
 
 # quartus files
-array_processor/*.qsys
-array_processor/*.sopcinfo
-array_processor/*.qpf
-array_processor/*.qsf
-array_processor/*.qws
-array_processor/fp_mac
-array_processpr/fp_add
-array_processor/fp_div
-array_processor/db
-array_processor/.qsys_edit
-array_processor/npu.v.orig
-array_processor/*.bak
-array_processor/serv_req_info.txt
+pipelined_vector/*.qsys
+pipelined_vector/*.sopcinfo
+pipelined_vector/*.qpf
+pipelined_vector/*.qsf
+pipelined_vector/*.qws
+pipelined_vector/fp_mac
+pipelined_vector/fp_add
+pipelined_vector/fp_div
+pipelined_vector/db
+pipelined_vector/.qsys_edit
+pipelined_vector/npu.v.orig
+pipelined_vector/*.bak
+pipelined_vector/serv_req_info.txt
 
 # used to generate executable benchmark files
 benchmark/fft/bin/
