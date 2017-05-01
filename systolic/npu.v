@@ -2,19 +2,16 @@ module npu(
 	rst, clk,
 	we, oe,
 	data,
-	ready
+	ready,
 	//debug
-	/*
+/*	
 	pe_state_r0,
-	
 	pe_state_r1,
 	pe_oe_0,
 	pe_oe_1,
-	
 	state_r,
 	do_act,
 	pe_count_r
-	
 	num_layers_r,
 	num_neurons_r3,
 	num_multadds,
@@ -31,17 +28,13 @@ module npu(
 parameter IN_BUF_IND_SIZE = 5; // log2(32)
 parameter OUT_BUF_IND_SIZE = 5; // log2(32)
 parameter ARR_WGT_IND_SIZE = 12;
-
 output [2:0] pe_state_r0;
-
 output [2:0] pe_state_r1;
 output pe_oe_0;
 output pe_oe_1;
-
 output [3:0] state_r;
 output do_act;
 output [4:0] pe_count_r;
-
 output [1:0] num_layers_r;
 output [4:0] num_neurons_r3;
 output [5:0] num_multadds;
@@ -79,18 +72,19 @@ output        ready;
 // ===== PE i/o =====
 	parameter PE_IDLE    = 3'd0;
 	parameter PE_LOAD    = 3'd1;  //load weights and biases
-	parameter PE_MA      = 3'd2;  //multiply & add
-	parameter PE_MAB     = 3'd3;  //multiply & add (data from buffer)
-	parameter PE_MABO    = 3'd4;
-	parameter PE_BIAS    = 3'd5;  //adding biases (multiply 1 & add)
+	parameter PE_MAO     = 3'd2;  //multiply & add (data from output buffer) TODO: check with pe
+	parameter PE_MAI     = 3'd3;  //multiply & add (data from input buffer)
+	parameter PE_MAR     = 3'd4;  //multiply & add (data from ring)
+	parameter PE_BIAS    = 3'd5;  //add biases (multiply 1 & add)
 	parameter PE_ACT     = 3'd6;  //activation function
-	parameter PE_ACT_CLR = 3'd7;  //activation function with clearing buffer
-
+	parameter PE_ACT_CLR = 3'd7;  //activation function with clearing input buffer
+    parameter PE_CLR     = 3'd8;  //don't write to output buffer, but clean input buffer TODO: change pe_state size
 
 // PE i/o
 reg [2:0]   pe_state_r[0:7],
 			pe_state_w[0:7];
 wire        pe_oe[0:7];
+wire        pe_ie[0:7]; // ON when PE is receiving inputs TODO
 
 // ===== state & counter =====
 parameter IDLE     = 4'd0;
@@ -98,10 +92,11 @@ parameter CONFIG   = 4'd1;  // load configuration
 parameter LOAD_W1  = 4'd2;  // load weights (& biases) for hidden layer one
 parameter LOAD_W2  = 4'd3;  // load weights (& biases) for hidden layer two
 parameter LOAD_WO  = 4'd4;  // load weights (& biases) for output layer
-parameter LAYER_H1 = 4'd5;  // hidden layer 1
-parameter LAYER_H2 = 4'd6;  // hidden layer 2
-parameter LAYER_O  = 4'd7;  // output layer
-parameter SEND_O   = 4'd8;  // send output
+parameter LOAD_I   = 4'd5;  // load first 8 inputs
+parameter LAYER_H1 = 4'd6;  // hidden layer 1
+parameter LAYER_H2 = 4'd7;  // hidden layer 2
+parameter LAYER_O  = 4'd8;  // output layer
+parameter SEND_O   = 4'd9;  // send output
 
 reg [3:0] state_r, state_w;
 reg [4:0] state_count_r, state_count_w;
@@ -130,6 +125,7 @@ wire [2:0] do_act_w;
 
 
 reg [5:0] num_multadds;
+reg [4:0] pre_num_neurons;
 
 //PE ID for loading weights(biases)
 wire [4:0] pe_w_id;
@@ -146,9 +142,9 @@ reg do_act;
 assign ready = (state_w == SEND_O)? 1'b1: 1'b0;
 
 // ======== debug =======
+
 /*
 assign pe_state_r0 = pe_state_r[0];
-
 assign pe_state_r1 = pe_state_r[1];
 assign pe_oe_0 = pe_oe[0];
 assign pe_oe_1 = pe_oe[1];
@@ -165,79 +161,80 @@ for(i_nn = 0; i_nn < 4; i_nn = i_nn+1) begin: num_neurons
 end
 endgenerate
 assign do_act_w = (state_r == CONFIG && state_count_r == 5'd5)? data[2:0]: do_act_r;
-/*
-always@(*) begin
-	num_neurons_w[0] = num_neurons_r[0];
-	num_neurons_w[1] = num_neurons_r[1];
-	num_neurons_w[2] = num_neurons_r[2];
-	num_neurons_w[3] = num_neurons_r[3];
-	if(state_r == CONFIG) begin
-		case(state_count_r) begin
-			5'd1: begin
-				num_neurons_w[0] = data_i;
-			end
-			5'd2: begin
-				num_neurons_w[1] = data_i;
-			end
-			5'd3: begin
-				num_neurons_w[2] = data_i;
-			end
-			5'd4: begin
-				num_neurons_w[3] = data_i;
-			end
-		end
-	end
-end
-*/
 
 // num_multadds
 // in loading weights, this includes bias
 // in layers, this excludes bias
 always@(*) begin
-	num_multadds = 6'd0;
+    num_multadds = 6'd0;
+    if(state_r == LOAD_W1 || state_r == LOAD_W2 || state_r == LOAD_WO) begin
+        num_multadds = {1'b0, (pre_num_neurons & 5'b11000)} + 6'd8;
+    end
+    else if(state_r == LAYER_H1 || state_r == LAYER_H2 || state_r == LAYER_O) begin
+        num_multadds = {1'b0, (pre_num_neurons & 5'b11000)} + 6'd7;
+    end
+end
+always@(*) begin
+    pre_num_neurons = 6'd0;
+    if(state_r == LOAD_W1 || (state_r == LOAD_WO && num_layers_r == ZERO_HIDDEN) ||
+       state_r == LAYER_H1 || (state_r == LAYER_O && num_layers_r == ZERO_HIDDEN)) begin
+        pre_num_neurons = num_neurons_r[0];
+    end
+    else if(state_r == LOAD_W2 || (state_r == LOAD_WO && num_layers_r == ONE_HIDDEN) ||
+            state_r == LAYER_H2 || (state_r == LOAD_WO && num_layers_r == ONE_HIDDEN)) begin
+        pre_num_neurons = num_neurons_r[1];
+    end
+    else if((state_r == LOAD_WO && num_layers_r == TWO_HIDDEN) ||
+             state_r == LAYER_O && num_layers_r == TWO_HIDDEN) begin
+        pre_num_neurons = num_neurons_r[2];
+    end
+end
+/*
+always@(*) begin
+	pre_num_neurons = 6'd0;
 	case(state_r)
 		LOAD_W1: begin
-			num_multadds = {1'b0, num_neurons_r[0]} + 6'd1;
+			pre_num_neurons = num_neurons_r[0];
 		end
 		LOAD_W2: begin
-			num_multadds = {1'b0, num_neurons_r[1]} + 6'd1;
+			pre_num_neurons = num_neurons_r[1];
 		end
 		LOAD_WO: begin
 			case(num_layers_r)
 				ZERO_HIDDEN: begin
-					num_multadds = {1'b0, num_neurons_r[0]} + 6'd1;
+					pre_num_neurons = num_neurons_r[0];
 				end
 				ONE_HIDDEN: begin
-					num_multadds = {1'b0, num_neurons_r[1]} + 6'd1;
+					pre_num_neurons = num_neurons_r[1];
 				end
 				TWO_HIDDEN: begin
-					num_multadds = {1'b0, num_neurons_r[2]} + 6'd1;
+					pre_num_neurons = num_neurons_r[2];
 				end
 			endcase
 		end
 		LAYER_H1: begin
-			num_multadds = {1'b0, num_neurons_r[0]};
+			pre_num_neurons = num_neurons_r[0];
 		end
 		LAYER_H2: begin
-			num_multadds = {1'b0, num_neurons_r[1]};
+			pre_num_neurons = num_neurons_r[1];
 		end
 		LAYER_O: begin
 			case(num_layers_r)
 				ZERO_HIDDEN: begin
-					num_multadds = {1'b0, num_neurons_r[0]};
+					pre_num_neurons = num_neurons_r[0];
 				end
 				ONE_HIDDEN: begin
-					num_multadds = {1'b0, num_neurons_r[1]};
+					pre_num_neurons = num_neurons_r[1];
 				end
 				TWO_HIDDEN: begin
-					num_multadds = {1'b0, num_neurons_r[2]};
+					pre_num_neurons = num_neurons_r[2];
 				end
 			endcase
 
 		end
 	endcase
 end
-
+*/
 // pe_w_id
 assign pe_w_id = state_count_w & 5'b00111;
 
@@ -263,7 +260,6 @@ always@(*) begin
 	endcase
 end
 
-// TODO: change signal names
 // ===== connection to PEs =====
 /*
 //debug
@@ -398,14 +394,19 @@ always@(*) begin
 		LOAD_WO: begin
 			if(state_count_r == num_neurons_r[3] &&
 			   multadd_count_r == num_multadds) begin
+               state_w = LOAD_I;
+			end
+		end
+        LOAD_I: begin
+            if(state_count_r == 5'd7) begin
 				if(num_layers_r == ZERO_HIDDEN) begin
 					state_w = LAYER_O;
 				end
 				else begin
 					state_w = LAYER_H1;
 				end
-			end
-		end
+            end
+        end
 		LAYER_H1: begin
 			if(pe_state_r[0] == PE_ACT_CLR && pe_state_w[0] != pe_state_r[0]) begin
 				if(num_layers_r == ONE_HIDDEN) begin
@@ -440,7 +441,7 @@ always@(*) begin
 	if(state_w != state_r) begin
 		state_count_w = 5'd0;
 	end
-	else if( state_r == CONFIG ||
+	else if( state_r == CONFIG || state_r == LOAD_I ||
 		     ( (state_r == LOAD_W1 || state_r == LOAD_W2 || state_r == LOAD_WO) && multadd_count_r == num_multadds ) ||
 		     (pe_state_r[0] == PE_ACT && pe_count_r == CYCLES_ACT) ||
 		     (state_r == SEND_O && oe == 1'b1) ) begin
@@ -486,18 +487,23 @@ for(i = 0; i < 8; i = i+1) begin
 				pe_state_w[i] = PE_LOAD;
 			end
 			else if(state_w != state_r && (state_w == LAYER_H1 || state_w == LAYER_H2 || state_w == LAYER_O) && (i <= num_busy_pes || num_iterations > 2'd0)) begin
-				pe_state_w[i] = PE_MA;
+				pe_state_w[i] = PE_MAO;
 			end
 		end
 		PE_LOAD: begin
+            /*
 			if(state_w == LAYER_H1 || state_w == LAYER_O) begin
 				pe_state_w[i] = PE_MA;
 			end
-			else if((state_w == LOAD_W1 || state_w == LOAD_W2 || state_w == LOAD_WO) && pe_w_id != i) begin
+            */
+			if(state_w == LOAD_I ||
+               (state_w == LOAD_W1 || state_w == LOAD_W2 || state_w == LOAD_WO) && pe_w_id != i) begin
 				pe_state_w[i] = PE_IDLE;
 			end
 		end
-		PE_MA: begin
+		PE_MAO: begin
+            pe_state_w[i] = PE_MAR;
+            /*
 			if(multadd_count_r == num_multadds) begin
 				pe_state_w[i] = PE_BIAS;
 			end
@@ -506,23 +512,35 @@ for(i = 0; i < 8; i = i+1) begin
 				     (multadd_count_w & 6'b000111) == i) begin
 				pe_state_w[i] = PE_MABO;
 			end
+            */
 		end
-		PE_MABO: begin
+		PE_MAI: begin
+            pe_state_w[i] = PE_MAR;
+            /*
 			if(multadd_count_r == num_multadds) begin
 				pe_state_w[i] = PE_BIAS;
 			end
 			else begin
 				pe_state_w[i] = PE_MA;
 			end
+            */
 		end
-		PE_MAB: begin
+		PE_MAR: begin
 			if(multadd_count_r == num_multadds) begin
 				pe_state_w[i] = PE_BIAS;
 			end
+            else if((multadd_count_r & 6'b000111) == 6'b000111) begin
+                if(state_count_r == 5'd0) begin //first iteration: from output buffer
+                    pe_state_w[i] = PE_MAO;
+                end
+                else begin //not first iteration: from input buffer
+                    pe_state_w[i] = PE_MAI;
+                end
+            end
 		end
 		PE_BIAS: begin
 			if(pe_count_r == CYCLES_MA) begin
-				if(state_count_r == num_iterations || (i > num_busy_pes && state_count_r == num_iterations - 5'd1)) begin
+				if(state_count_r == num_iterations) begin
 					pe_state_w[i] = PE_ACT_CLR;
 				end
 				else begin
@@ -532,7 +550,12 @@ for(i = 0; i < 8; i = i+1) begin
 		end
 		PE_ACT: begin
 			if((do_act == 1'b1 && pe_count_r == CYCLES_ACT) || do_act == 1'b0) begin
-				pe_state_w[i] = PE_MAB;
+                if(i > num_busy_pes && state_count_r == num_iterations - 5'd1) begin
+                    pe_state_w[i] = PE_MA_IDLE; //TODO
+                end
+                else begin
+				    pe_state_w[i] = PE_MAB;
+                end
 			end
 		end
 		PE_ACT_CLR: begin
