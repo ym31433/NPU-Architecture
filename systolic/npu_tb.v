@@ -1,19 +1,16 @@
 `timescale 100ps/1ps
 `define CYCLE 50
 `define NUM_LAYERS 0 // 2 layers
-`define NUM_IN 9 // 10 neurons
+`define NUM_IN 0 // 1 neurons
 `define NUM_H1 0
 `define NUM_H2 0
 `define NUM_OUT 0 // 1 neuron
-`define ACT 4 // activation function at output (100)
-`define NUM_W 11 // number of weights and biases
+`define ACT 0 // no activation function
+`define NUM_W 2
 //`define NUM_MA 10 // 10 multiply-adds (without bias)
-`define NUM_CALC 24 // number of cycles to calculate
-`define NUM_DATA 65536 // number of data sets
 
-`define IN_FILE "/home/cosine/spring2017/cs533/project/benchmark/hotspot/data/pipelined_vector/input_hex.dat"
-`define W_FILE "/home/cosine/spring2017/cs533/project/benchmark/hotspot/nn_config/pipelined_vector/10_0_0_1_hex.dat"
-`define OUT_FILE "/home/cosine/spring2017/cs533/project/benchmark/hotspot/data/pipelined_vector/10_0_0_1_hex.dat"
+//`define IN_FILE "/home/cosine/spring2017/cs533/project/benchmark/hotspot/data/pipelined_vector/input_hex.dat"
+//`define W_FILE "/home/cosine/spring2017/cs533/project/benchmark/hotspot/nn_config/pipelined_vector/10_0_0_1_hex.dat"
 
 module npu_tb();
 	reg clk, rst;
@@ -27,17 +24,14 @@ module npu_tb();
 	wire [1:0] num_layers;
 	wire [4:0] num_neurons_3;
 	wire [5:0] num_multadds;
-   	wire [4:0] state_count;
-   	wire [5:0] multadd_count;
-	*/
+   wire [4:0] state_count;
+   wire [5:0] multadd_count;
 	
 	reg signed [31:0] in[0:`NUM_IN];
 	reg signed [31:0] w[0:`NUM_W-1];
 	integer i;
-	integer infile, wfile, outfile;
-	integer iteration;
 	
-	/*
+	
 	reg pe_oe;
 	reg do_act;
 	wire [4:0] counter;
@@ -75,6 +69,8 @@ module npu_tb();
 	wire [31:0] fp_div_output;
 	*/
 	
+	//reg in_flag;
+	//assign data_w = (in_flag) data : 32'bz;
 	assign data_w = data;
 	
 	parameter PE_IDLE    = 3'd0;
@@ -104,23 +100,17 @@ module npu_tb();
 	.ArrWeights_i1(ArrWeights_i1),
 	.OutBuf_i0(OutBuf_i0),
 	.OutBuf_n_i0(OutBuf_n_i0),
-	.OutBuf_Full(OutBuf_Full));*/
-	
+	.OutBuf_Full(OutBuf_Full));
+	*/
 	
 	always begin
 		#(`CYCLE/2) clk = ~clk;
 	end
 	
+	//initial $readmemh (`IN_FILE, in);
+	//initial $readmemh (`W_FILE, w);
+	
 	initial begin
-      /**** open files ****/
-	   //$readmemh (`IN_FILE, in);
-	   //$readmemh (`W_FILE, w);
-
-		infile = $fopen(`IN_FILE, "r");
-		wfile = $fopen(`W_FILE, "r");
-		outfile = $fopen(`OUT_FILE, "w");
-		
-      /**** reset the NPU ****/
 		#0;
 		clk = 1'b1;
 		rst = 1'b0;
@@ -135,76 +125,139 @@ module npu_tb();
 		rst = 1'b0;
 		
 		#(`CYCLE/2);
+		we = 1'b1;
 		
-		/**** start the loop ****/
-		//for(iteration = 0; iteration < NUM_DATA; iteration = iteration + 1) begin
-		for(iteration = 0; iteration < 1; iteration = iteration + 1) begin
-			/**** read input file and weight file ****/
-			for(i = 0; i <= `NUM_IN; i = i + 1) begin
-				//$fgets(in[i], infile);
-				$fscanf(infile, "%08x", in[i]);
-			end
-			for(i = 0; i < `NUM_W; i = i + 1) begin
-				//$fgets(w[i], wfile);
-				$fscanf(wfile, "%08x", w[i]);
-			end
 		
-			we = 1'b1;
-			/**** send configurations ****/
+		/**** send configurations ****/
+		#(`CYCLE);
+		data = `NUM_LAYERS; // 2 layers
+		
+		#(`CYCLE);
+		data = `NUM_IN; // 1 input neuron
+		
+		#(`CYCLE);
+		data = `NUM_H1;
+		
+		#(`CYCLE);
+		data = `NUM_H2;
+		
+		#(`CYCLE);
+		data = `NUM_OUT; // 1 output neuron
+		
+		#(`CYCLE);
+		data = `ACT; // no activation function
+		
+		
+		/**** send wieghts ****/
+		/*
+		for(i = 0; i < `NUM_W; i = i+1) begin
 			#(`CYCLE);
-			data = `NUM_LAYERS; // 2 layers
-			
-			#(`CYCLE);
-			data = `NUM_IN; // 10 input neuron
-			
-			#(`CYCLE);
-			data = `NUM_H1;
-			
-			#(`CYCLE);
-			data = `NUM_H2;
-			
-			#(`CYCLE);
-			data = `NUM_OUT; // 1 output neuron
-			
-			#(`CYCLE);
-			data = `ACT; // no activation function
-			
-			
-			/**** send wieghts ****/
-			for(i = 0; i < `NUM_W; i = i+1) begin
-				#(`CYCLE);
-				data = w[i];
-			end
-			
-			
-			/**** first layer: send inputs ****/
-			for(i = 0; i <= `NUM_IN; i = i+1) begin
-				#(`CYCLE);
-				data = in[i];
-			end
-			#(`CYCLE);
-			we = 1'b0;
-			data = 32'bz;
-			
-			
-			/**** rest of the layers calculation ****/
-			#(`CYCLE*`NUM_CALC);
-			
-			
-			/**** receive outputs and write output data ****/
-			oe = 1;
-			for(i = 0; i <= `NUM_OUT; i = i+1) begin
-				$fstrobe(outfile, "%x", data_w);
-				 #(`CYCLE);
-			end
-			oe = 0;
+			data = w[i];
 		end
+		*/
 		
-		$fclose(infile);
-		$fclose(wfile);
-		$fclose(outfile);
+		#(`CYCLE);
+		data = {1'b0,1'b1,30'b0};  //weight: 2
+		
+		#(`CYCLE);
+		data = 32'h45800000; //bias: 4096
+		
+		
+		
+		/**** first layer: send inputs ****/
+		/*
+		for(i = 0; i <= `NUM_IN; i = i+1) begin
+			#(`CYCLE);
+			data = in[i];
+		end
+		*/
+		
+		#(`CYCLE);
+		data = 32'h44800000; //intput1: 1024
+		
+		#(`CYCLE);
+		we = 1'b0;
+		data = 32'bz;
+		
+		
+		/**** rest of the layers calculation ****/
+		#(`CYCLE*15);
+		
+		
+		/**** receive outputs ****/
+		oe = 1;
+		#(`CYCLE*3);
 
 		$finish;
 		
 	end
 endmodule
+
+		
+		/*
+		pe_state = PE_LOAD;
+		pe_oe = 1'b0;
+		data = {1'b0,1'b1,30'b0};  //2
+		//in_flag = 1'b1;
+		do_act = 0;
+
+		#(`CYCLE);
+		data = 32'h44800000; //1024
+		
+		#(`CYCLE);
+		data = 32'h45800000; //4096
+		
+		
+		#(`CYCLE);
+		data = {1'b0,1'b1,30'b0};  //2
+		#(`CYCLE);
+		data = 32'h45800000; //4096
+		#(`CYCLE);
+		data = 32'h44800000; //1024
+		
+		#(`CYCLE);
+		pe_state = PE_MA;
+		data = 32'h45800000; //4096
+		//data = 32'h44800000; //1024
+		
+		#(`CYCLE);
+		data = {1'b0,1'b1,30'b0};  //2
+		//data = 32'bz;
+		
+		//in_flag = 1'b0;
+		
+		//#(`CYCLE*3);
+		#(`CYCLE);
+		pe_state = PE_BIAS;
+		data = 32'h44800000; //1024
+		//data = 32'h3f800000;	// 1
+				
+		#(`CYCLE);
+		data = 32'bz;
+		
+		#(`CYCLE*3);
+		pe_state = PE_ACT;
+		
+		#(`CYCLE);
+		pe_state = PE_MA;
+		data = 32'h45800000; //4096
+		#(`CYCLE);
+		data = {1'b0,1'b1,30'b0};  //2
+		#(`CYCLE);
+		pe_state = PE_BIAS;
+		data = 32'h44800000; //1024
+		#(`CYCLE);
+		data = 32'bz;
+		
+		
+		do_act = 1;
+		#(`CYCLE*3);
+		pe_state = PE_ACT;
+		
+		#(`CYCLE*23);
+		pe_state = PE_IDLE;
+		pe_oe = 1'b1;
+		
+		#(`CYCLE*5);
+		*/
+		
