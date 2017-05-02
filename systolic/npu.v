@@ -70,18 +70,18 @@ output        ready;
 
 
 // ===== PE i/o =====
-	parameter PE_IDLE    = 3'd0;
-	parameter PE_LOAD    = 3'd1;  //load weights and biases
-	parameter PE_MAO     = 3'd2;  //multiply & add (data from output buffer) TODO: check with pe
-	parameter PE_MAI     = 3'd3;  //multiply & add (data from input buffer)
-	parameter PE_MAR     = 3'd4;  //multiply & add (data from ring)
-	parameter PE_BIAS    = 3'd5;  //add biases (multiply 1 & add)
-	parameter PE_ACT     = 3'd6;  //activation function
-	parameter PE_ACT_CLR = 3'd7;  //activation function with clearing input buffer
-    parameter PE_CLR     = 3'd8;  //don't write to output buffer, but clean input buffer TODO: change pe_state size
+	parameter PE_IDLE    = 4'd0;
+	parameter PE_LOAD    = 4'd1;  //load weights and biases
+	parameter PE_MAO     = 4'd2;  //multiply & add (data from output buffer) TODO: check with pe
+	parameter PE_MAI     = 4'd3;  //multiply & add (data from input buffer)
+	parameter PE_MAR     = 4'd4;  //multiply & add (data from ring)
+	parameter PE_BIAS    = 4'd5;  //add biases (multiply 1 & add)
+	parameter PE_ACT     = 4'd6;  //activation function
+	parameter PE_ACT_CLR = 4'd7;  //activation function with clearing input buffer
+    parameter PE_CLR     = 4'd8;  //don't write to output buffer, but clean input buffer TODO: change pe_state size
 
 // PE i/o
-reg [2:0]   pe_state_r[0:7],
+reg [3:0]   pe_state_r[0:7],
 			pe_state_w[0:7];
 wire        pe_oe[0:7];
 wire        pe_ie[0:7]; // ON when PE is receiving inputs TODO
@@ -461,7 +461,7 @@ always@(*) begin
 	end
 */
 	if( (state_r == LOAD_W1 || state_r == LOAD_W2 || state_r == LOAD_WO ||
-		 pe_state_r[0] == PE_MA || pe_state_r[0] == PE_MAB || pe_state_r[0] == PE_MABO) &&
+		 pe_state_r[0] == PE_MAO || pe_state_r[0] == PE_MAI || pe_state_r[0] == PE_MAR) &&
 		multadd_count_r != num_multadds ) begin
 		multadd_count_w = multadd_count_r + 6'd1;
 	end
@@ -486,45 +486,22 @@ for(i = 0; i < 8; i = i+1) begin
 			if((state_w == LOAD_W1 || state_w == LOAD_W2 || state_w == LOAD_WO) && pe_w_id == i) begin
 				pe_state_w[i] = PE_LOAD;
 			end
-			else if(state_w != state_r && (state_w == LAYER_H1 || state_w == LAYER_H2 || state_w == LAYER_O) && (i <= num_busy_pes || num_iterations > 2'd0)) begin
+			else if(state_w != state_r && state_r == LOAD_I) begin
 				pe_state_w[i] = PE_MAO;
 			end
 		end
 		PE_LOAD: begin
-            /*
-			if(state_w == LAYER_H1 || state_w == LAYER_O) begin
-				pe_state_w[i] = PE_MA;
-			end
-            */
-			if(state_w == LOAD_I ||
+            if(state_w == LOAD_I ||
                (state_w == LOAD_W1 || state_w == LOAD_W2 || state_w == LOAD_WO) && pe_w_id != i) begin
 				pe_state_w[i] = PE_IDLE;
 			end
 		end
 		PE_MAO: begin
             pe_state_w[i] = PE_MAR;
-            /*
-			if(multadd_count_r == num_multadds) begin
-				pe_state_w[i] = PE_BIAS;
-			end
-			else if( (state_w == LAYER_H2 || state_w == LAYER_O) && num_layers_r[1] != 2'd0 &&
-				     state_count_w == 5'd0 &&
-				     (multadd_count_w & 6'b000111) == i) begin
-				pe_state_w[i] = PE_MABO;
-			end
-            */
-		end
+            end
 		PE_MAI: begin
             pe_state_w[i] = PE_MAR;
-            /*
-			if(multadd_count_r == num_multadds) begin
-				pe_state_w[i] = PE_BIAS;
-			end
-			else begin
-				pe_state_w[i] = PE_MA;
-			end
-            */
-		end
+            end
 		PE_MAR: begin
 			if(multadd_count_r == num_multadds) begin
 				pe_state_w[i] = PE_BIAS;
@@ -541,7 +518,12 @@ for(i = 0; i < 8; i = i+1) begin
 		PE_BIAS: begin
 			if(pe_count_r == CYCLES_MA) begin
 				if(state_count_r == num_iterations) begin
-					pe_state_w[i] = PE_ACT_CLR;
+                    if(i <= num_busy_pes) begin
+					    pe_state_w[i] = PE_ACT_CLR;
+                    end
+                    else begin
+                        pe_state_w[i] = PE_CLR;
+                    end
 				end
 				else begin
 					pe_state_w[i] = PE_ACT;
@@ -550,25 +532,27 @@ for(i = 0; i < 8; i = i+1) begin
 		end
 		PE_ACT: begin
 			if((do_act == 1'b1 && pe_count_r == CYCLES_ACT) || do_act == 1'b0) begin
-                if(i > num_busy_pes && state_count_r == num_iterations - 5'd1) begin
-                    pe_state_w[i] = PE_MA_IDLE; //TODO
-                end
-                else begin
-				    pe_state_w[i] = PE_MAB;
-                end
-			end
+                pe_state_w[i] = PE_MAI;
+            end
 		end
 		PE_ACT_CLR: begin
 			if((do_act == 1'b1 && pe_count_r == CYCLES_ACT) || do_act == 1'b0) begin
-				if(i == 0 && state_w != SEND_O) begin
-					pe_state_w[i] = PE_MABO;
-				end
-				else if(state_w != state_r && state_w != SEND_O && (i <= num_busy_pes || num_iterations > 0)) begin // if enters next layer and should be working
-					pe_state_w[i] = PE_MA;
-				end
-				else begin
-					pe_state_w[i] = PE_IDLE;
-				end
+                if(state_r == LAYER_O) begin
+                    pe_state_w[i] = PE_IDLE;
+                end
+                else begin
+                    pe_state_w[i] = PE_MAO;
+                end
+			end
+		end
+	    PE_CLR: begin
+			if((do_act == 1'b1 && pe_count_r == CYCLES_ACT) || do_act == 1'b0) begin
+                if(state_r == LAYER_O) begin
+                    pe_state_w[i] = PE_IDLE;
+                end
+                else begin
+                    pe_state_w[i] = PE_MAO;
+                end
 			end
 		end
 	endcase
@@ -581,13 +565,27 @@ end
 // 2. SEND_O state
 genvar i_po;
 generate
-for(i_po = 0; i_po < 8; i_po = i_po+1) begin: output_en
+for(i_po = 0; i_po < 8; i_po = i_po+1) begin
+    /*
 	assign pe_oe[i_po] = (pe_state_r[i_po] == PE_MABO ||
 						  (pe_state_r[i_po] == PE_IDLE &&
 						   (state_r == LAYER_H2 || state_r == LAYER_O) && num_layers_r[1] != 2'd0 &&
 					       state_count_r == 5'd0 &&
 					       (multadd_count_w & 6'b000111) == i_po) ||
 						  (state_r == SEND_O && oe == 1'b1 && state_count_r == i_po))? 1'b1: 1'b0;
+                      */
+    assign pe_oe[i_po] = (state_r == SENF_O && oe == 1'b1 && state_count_r == i_po)? 1'b1: 1'b0;
+end
+endgenerate
+
+// pe_ie
+// enabled in the first layer
+genvar i_pi;
+generate
+for(i_pi = 0; i_pi < 8; i_pi = i_pi+1) begin
+    assign pe_ie[i_pi] = ((state_r == LAYER_H1 || (state_r == LAYER_O && num_layers_r == ZERO_HIDDEN)) &&
+                          multadd_count_r < num_multadds-6'd7 &&
+                          (multadd_count_r & 6'b000111) == i_pi)? 1'b1: 1'b0;
 end
 endgenerate
 
